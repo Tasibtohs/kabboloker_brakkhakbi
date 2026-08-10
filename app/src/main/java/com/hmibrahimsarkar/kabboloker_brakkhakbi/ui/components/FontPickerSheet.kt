@@ -208,7 +208,7 @@ fun FontPickerSheet(
                                 .scale(fontCardScale)
                                 .border(
                                     width = if (isFontSelected) 2.dp else 1.dp,
-                                    color = if (isFontSelected) GoldPrimary else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
+                                    color = if (isFontSelected) GoldPrimary else MaterialTheme.colorScheme.outlineVariant,
                                     shape = RoundedCornerShape(12.dp)
                                 )
                                 .clickable {
