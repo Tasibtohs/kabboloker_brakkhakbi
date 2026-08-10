@@ -25,7 +25,7 @@ private val KabyolokorDarkColorScheme = darkColorScheme(
     surfaceVariant = DarkSurfaceVariant,
     onSurfaceVariant = DarkTextSecondary,
     outline = DarkBorder,
-    outlineVariant = DarkBorder.copy(alpha = 0.5f)
+    outlineVariant = Color(0xFF383838)
 )
 
 private val KabyolokorLightColorScheme = lightColorScheme(
@@ -46,7 +46,7 @@ private val KabyolokorLightColorScheme = lightColorScheme(
     surfaceVariant = LightSurfaceVariant,
     onSurfaceVariant = LightTextSecondary,
     outline = LightBorder,
-    outlineVariant = LightBorder.copy(alpha = 0.6f)
+    outlineVariant = LightBorder
 )
 
 @Composable
