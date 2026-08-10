@@ -265,7 +265,7 @@ fun NotesListScreen(
                     shape = RoundedCornerShape(50),
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedBorderColor = AmberAccent,
-                        unfocusedBorderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f),
+                        unfocusedBorderColor = MaterialTheme.colorScheme.outline,
                         focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
                         unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
                         focusedTextColor = MaterialTheme.colorScheme.onSurface,
