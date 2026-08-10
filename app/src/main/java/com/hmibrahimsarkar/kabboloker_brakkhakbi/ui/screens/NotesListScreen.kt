@@ -44,10 +44,15 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.Lock
-import androidx.compose.material.icons.filled.Menu
+import androidx.compose.material.icons.automirrored.outlined.Notes
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.graphics.vector.addPathNodes
 import androidx.compose.material.icons.outlined.DarkMode
 import androidx.compose.material.icons.outlined.Description
 import androidx.compose.material.icons.outlined.LightMode
@@ -78,7 +83,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -89,7 +93,6 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.IntrinsicSize
-import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.ui.res.painterResource
@@ -112,6 +115,19 @@ import com.hmibrahimsarkar.kabboloker_brakkhakbi.ui.theme.GoldLight
 import com.hmibrahimsarkar.kabboloker_brakkhakbi.ui.theme.GoldPrimary
 import com.hmibrahimsarkar.kabboloker_brakkhakbi.ui.theme.LightTextPrimary
 import com.hmibrahimsarkar.kabboloker_brakkhakbi.ui.viewmodel.MainViewModel
+
+private val SidebarIconVector: ImageVector by lazy {
+    ImageVector.Builder(
+        name = "SidebarIcon",
+        defaultWidth = 24.dp,
+        defaultHeight = 24.dp,
+        viewportWidth = 24f,
+        viewportHeight = 24f
+    ).addPath(
+        pathData = addPathNodes("M 3,4.5 C 3,3.67 3.67,3 4.5,3 L 19.5,3 C 20.33,3 21,3.67 21,4.5 L 21,19.5 C 21,20.33 20.33,21 19.5,21 L 4.5,21 C 3.67,21 3,20.33 3,19.5 Z M 5,5 L 5,19 L 9.2,19 L 9.2,5 Z M 10.8,19 L 19,19 L 19,5 L 10.8,5 Z"),
+        fill = SolidColor(Color.White)
+    ).build()
+}
 
 @Composable
 fun NotesListScreen(
@@ -147,10 +163,10 @@ fun NotesListScreen(
                 navigationIcon = {
                     IconButton(onClick = onOpenDrawer) {
                         Icon(
-                            imageVector = Icons.Filled.Menu,
+                            imageVector = SidebarIconVector,
                             contentDescription = "Open Drawer",
                             tint = AmberAccent,
-                            modifier = Modifier.size(26.dp)
+                            modifier = Modifier.size(24.dp)
                         )
                     }
                 },
@@ -173,46 +189,8 @@ fun NotesListScreen(
                                 .rotate(gridIconRotation)
                         )
                     }
-                    IconButton(onClick = { viewModel.toggleDarkMode(!(isDarkMode ?: false)) }) {
-                        Icon(
-                            imageVector = if (isDarkMode == true) Icons.Outlined.LightMode else Icons.Outlined.DarkMode,
-                            contentDescription = "Toggle Dark Mode",
-                            tint = AmberAccent,
-                            modifier = Modifier.size(24.dp)
-                        )
-                    }
                 }
             )
-        },
-        floatingActionButton = {
-            if (selectedNoteIds.isEmpty()) {
-                // Golden circular FAB with linear gradient and subtle glow shadow
-                Box(
-                    modifier = Modifier
-                        .size(60.dp)
-                        .shadow(
-                            elevation = 16.dp,
-                            shape = CircleShape,
-                            spotColor = GoldPrimary,
-                            ambientColor = GoldGlow
-                        )
-                        .clip(CircleShape)
-                        .background(
-                            Brush.linearGradient(
-                                colors = listOf(GoldLight, GoldPrimary, GoldDark)
-                            )
-                        )
-                        .clickable { onOpenEditor(null) },
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        imageVector = Icons.Filled.Add,
-                        contentDescription = "New Poem Note",
-                        tint = LightTextPrimary,
-                        modifier = Modifier.size(30.dp)
-                    )
-                }
-            }
         }
     ) { paddingValues ->
         Column(
@@ -224,11 +202,13 @@ fun NotesListScreen(
             // Info Bar (Total Notes Count & Date)
             InfoBar(leftText = "$noteCount টি কবিতা ও নোট")
 
-            // Permanent Search Bar below InfoBar
-            Box(
+            // Search Bar with Circular Pencil Button on the right
+            Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 6.dp)
+                    .padding(horizontal = 16.dp, vertical = 6.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
             ) {
                 OutlinedTextField(
                     value = searchQuery,
@@ -261,7 +241,7 @@ fun NotesListScreen(
                         }
                     },
                     singleLine = true,
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier.weight(1f),
                     shape = RoundedCornerShape(50),
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedBorderColor = AmberAccent,
@@ -272,6 +252,24 @@ fun NotesListScreen(
                         unfocusedTextColor = MaterialTheme.colorScheme.onSurface
                     )
                 )
+
+                // Circular Pencil Button matching Search Bar style
+                Box(
+                    modifier = Modifier
+                        .size(52.dp)
+                        .clip(CircleShape)
+                        .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f))
+                        .border(1.dp, MaterialTheme.colorScheme.outline, CircleShape)
+                        .clickable { onOpenEditor(null) },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.Edit,
+                        contentDescription = "New Poem Note",
+                        tint = AmberAccent,
+                        modifier = Modifier.size(26.dp)
+                    )
+                }
             }
 
             // Group Filter Pills
