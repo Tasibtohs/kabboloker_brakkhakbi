@@ -22,13 +22,13 @@ val GoldGlowGradient = Brush.radialGradient(
 // Background & Surface Tokens
 val LightBackground = Color(0xFFFAFAF8)
 val LightSurface = Color(0xFFFFFFFF)
-val LightSurfaceVariant = Color(0xFFF2F2EC)
-val LightBorder = Color(0xFFE8E6DC)
+val LightSurfaceVariant = Color(0xFFF0EFE8)
+val LightBorder = Color(0xFFB0AEA0) // Distinct, high-contrast crisp border for Light Mode
 
-val DarkBackground = Color(0xFF0A0E14)
-val DarkSurface = Color(0xFF161B22)
-val DarkSurfaceVariant = Color(0xFF1C222B)
-val DarkBorder = Color(0x1AFFFFFF)
+val DarkBackground = Color(0xFF000000) // Pitch / OLED Pure Black
+val DarkSurface = Color(0xFF121212)    // Pitch dark surface for cards
+val DarkSurfaceVariant = Color(0xFF1E1E1E)
+val DarkBorder = Color(0xFF333333)
 
 // Text Tokens for high contrast readability
 val LightTextPrimary = Color(0xFF111318)
