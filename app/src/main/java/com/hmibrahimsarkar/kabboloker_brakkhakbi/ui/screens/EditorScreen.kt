@@ -248,7 +248,7 @@ fun EditorScreen(
                                 }
                             )
 
-                            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
+                            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
 
                             if (noteState.isLocked) {
                                 DropdownMenuItem(
@@ -267,7 +267,7 @@ fun EditorScreen(
                                     }
                                 )
 
-                                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
+                                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                             }
 
                             DropdownMenuItem(
@@ -291,7 +291,7 @@ fun EditorScreen(
                                 }
                             )
 
-                            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
+                            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
 
                             DropdownMenuItem(
                                 text = { Text("অনুলিপি বা কপি", fontWeight = FontWeight.Medium) },
@@ -309,7 +309,7 @@ fun EditorScreen(
                                 }
                             )
 
-                            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
+                            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
 
                             DropdownMenuItem(
                                 text = { Text("এই নোট PDF করুন", fontWeight = FontWeight.Medium) },
@@ -330,7 +330,7 @@ fun EditorScreen(
                                 }
                             )
 
-                            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
+                            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
 
                             DropdownMenuItem(
                                 text = { Text("মুছে ফেলুন", color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.Medium) },
@@ -509,8 +509,8 @@ fun EditorScreen(
                         .fillMaxWidth()
                         .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f))
                         .border(
-                            width = 0.5.dp,
-                            color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f)
+                            width = 1.dp,
+                            color = MaterialTheme.colorScheme.outlineVariant
                         )
                         .padding(horizontal = 16.dp, vertical = 6.dp),
                     contentAlignment = Alignment.Center
