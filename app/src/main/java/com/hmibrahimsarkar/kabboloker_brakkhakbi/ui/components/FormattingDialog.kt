@@ -539,7 +539,7 @@ fun PremiumFormatToggleButton(
     val borderModifier = if (isSelected) {
         Modifier.border(1.dp, GoldLight, RoundedCornerShape(12.dp))
     } else {
-        Modifier.border(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f), RoundedCornerShape(12.dp))
+        Modifier.border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(12.dp))
     }
 
     val backgroundModifier = if (isSelected) {
