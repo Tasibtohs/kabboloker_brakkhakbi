@@ -104,7 +104,7 @@ fun NoteCardItem(
             .scale(scale)
             .border(
                 width = if (isSelected) 2.5.dp else 1.dp,
-                color = if (isSelected) GoldPrimary else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f),
+                color = if (isSelected) GoldPrimary else MaterialTheme.colorScheme.outlineVariant,
                 shape = RoundedCornerShape(18.dp)
             )
             .combinedClickable(
