@@ -51,7 +51,7 @@ private val KabyolokorLightColorScheme = lightColorScheme(
 
 @Composable
 fun KabyolokorTheme(
-    darkTheme: Boolean = isSystemInDarkTheme(),
+    isDarkMode: Boolean = isSystemInDarkTheme(),
     content: @Composable () -> Unit
 ) {
     val colorScheme = if (darkTheme) KabyolokorDarkColorScheme else KabyolokorLightColorScheme
