@@ -51,15 +51,18 @@ private val KabyolokorLightColorScheme = lightColorScheme(
 
 @Composable
 fun KabyolokorTheme(
-    isDarkMode: Boolean = isSystemInDarkTheme(),
+    darkTheme: Boolean = isSystemInDarkTheme(),  // ← প্যারামিটার নাম 'darkTheme'
     content: @Composable () -> Unit
 ) {
-    val colorScheme = if (darkTheme) KabyolokorDarkColorScheme else KabyolokorLightColorScheme
+    val colorScheme = if (darkTheme) {  // ← এখানে 'darkTheme' ব্যবহার করুন
+        KabyolokorDarkColorScheme
+    } else {
+        KabyolokorLightColorScheme
+    }
 
     MaterialTheme(
         colorScheme = colorScheme,
-        shapes = AppShapes,
-        typography = AppTypography,
+        typography = Typography,
         content = content
     )
 }
