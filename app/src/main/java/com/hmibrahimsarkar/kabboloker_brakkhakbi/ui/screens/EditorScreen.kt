@@ -5,6 +5,8 @@ import android.content.Intent
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -14,9 +16,12 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -139,7 +144,6 @@ fun EditorScreen(
     var showFontSheet by remember { mutableStateOf(false) }
     var showColorSheet by remember { mutableStateOf(false) }
     var showDeleteDialog by remember { mutableStateOf(false) }
-    var showTopBarTitleDialog by remember { mutableStateOf(false) }
 
     val formatSheetState = rememberModalBottomSheetState()
     val fontSheetState = rememberModalBottomSheetState()
@@ -167,13 +171,28 @@ fun EditorScreen(
         else -> TextDecoration.None
     }
 
+    val scrollState = rememberScrollState()
+
+    // Auto-scroll when typing near the bottom so newly typed text is visible above keyboard
+    LaunchedEffect(noteState.content, noteState.title) {
+        if (scrollState.maxValue > 0) {
+            val isNearBottom = scrollState.value >= (scrollState.maxValue - 400)
+            if (isNearBottom || noteState.content.length <= 100) {
+                scrollState.animateScrollTo(scrollState.maxValue)
+            }
+        }
+    }
+
     Scaffold(
+        modifier = Modifier
+            .fillMaxSize()
+            .imePadding(),
+        contentWindowInsets = WindowInsets(0, 0, 0, 0),
         topBar = {
             if (!isReadingMode) {
                 AppTopBar(
                     title = editorTopBarName.ifBlank { "কাব্যলোকের ব্রক্ষকবি" },
                     subtitle = if (noteState.isLocked) "🔒 শুধু পঠনযোগ্য" else (if (isSaved) "" else "অটো-সেভ হচ্ছে..."),
-                    onTitleClick = { showTopBarTitleDialog = true },
                     navigationIcon = {
                         IconButton(onClick = {
                             scope.launch {
@@ -193,26 +212,32 @@ fun EditorScreen(
                     },
                     actions = {
                         if (!noteState.isLocked) {
-                            IconButton(
-                                onClick = { editorViewModel.undo() },
-                                enabled = canUndo
+                            AnimatedVisibility(
+                                visible = canUndo,
+                                enter = fadeIn(),
+                                exit = fadeOut()
                             ) {
-                                Icon(
-                                    imageVector = Icons.AutoMirrored.Filled.Undo,
-                                    contentDescription = "Undo",
-                                    tint = if (canUndo) GoldPrimary else MaterialTheme.colorScheme.outlineVariant
-                                )
+                                IconButton(onClick = { editorViewModel.undo() }) {
+                                    Icon(
+                                        imageVector = Icons.AutoMirrored.Filled.Undo,
+                                        contentDescription = "Undo",
+                                        tint = GoldPrimary
+                                    )
+                                }
                             }
 
-                            IconButton(
-                                onClick = { editorViewModel.redo() },
-                                enabled = canRedo
+                            AnimatedVisibility(
+                                visible = canRedo,
+                                enter = fadeIn(),
+                                exit = fadeOut()
                             ) {
-                                Icon(
-                                    imageVector = Icons.AutoMirrored.Filled.Redo,
-                                    contentDescription = "Redo",
-                                    tint = if (canRedo) GoldPrimary else MaterialTheme.colorScheme.outlineVariant
-                                )
+                                IconButton(onClick = { editorViewModel.redo() }) {
+                                    Icon(
+                                        imageVector = Icons.AutoMirrored.Filled.Redo,
+                                        contentDescription = "Redo",
+                                        tint = GoldPrimary
+                                    )
+                                }
                             }
                         }
 
@@ -386,32 +411,6 @@ fun EditorScreen(
                         )
                     }
                 }
-            } else if (!noteState.isLocked) {
-                // Golden circular floating save button matching Home FAB
-                FloatingActionButton(
-                    onClick = {
-                        scope.launch {
-                            editorViewModel.saveNote()
-                        }
-                    },
-                    shape = CircleShape,
-                    containerColor = GoldPrimary,
-                    contentColor = Color.White,
-                    elevation = FloatingActionButtonDefaults.elevation(defaultElevation = 8.dp),
-                    modifier = Modifier
-                        .shadow(
-                            elevation = 12.dp,
-                            shape = CircleShape,
-                            spotColor = GoldGlow,
-                            ambientColor = GoldLight
-                        )
-                ) {
-                    Icon(
-                        imageVector = if (isSaved) Icons.Filled.Check else Icons.Filled.Save,
-                        contentDescription = "Save Note",
-                        modifier = Modifier.size(26.dp)
-                    )
-                }
             }
         },
         bottomBar = {
@@ -420,7 +419,7 @@ fun EditorScreen(
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 24.dp, vertical = 12.dp),
+                        .padding(horizontal = 16.dp, vertical = 10.dp),
                     contentAlignment = Alignment.Center
                 ) {
                     Row(
@@ -428,8 +427,8 @@ fun EditorScreen(
                             .clip(RoundedCornerShape(50))
                             .background(MaterialTheme.colorScheme.surfaceVariant)
                             .border(1.dp, AmberAccent.copy(alpha = 0.4f), RoundedCornerShape(50))
-                            .padding(horizontal = 16.dp, vertical = 6.dp),
-                        horizontalArrangement = Arrangement.spacedBy(16.dp),
+                            .padding(horizontal = 12.dp, vertical = 6.dp),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         // Aa (Formatting)
@@ -491,6 +490,22 @@ fun EditorScreen(
                                 tint = if (noteState.isPinned) AmberAccent else MaterialTheme.colorScheme.onSurface
                             )
                         }
+
+                        // Save
+                        IconButton(
+                            onClick = {
+                                scope.launch {
+                                    editorViewModel.saveNote()
+                                }
+                            },
+                            modifier = Modifier.size(36.dp)
+                        ) {
+                            Icon(
+                                imageVector = if (isSaved) Icons.Filled.Check else Icons.Filled.Save,
+                                contentDescription = "Save Note",
+                                tint = if (isSaved) AmberAccent else GoldPrimary
+                            )
+                        }
                     }
                 }
             }
@@ -528,7 +543,7 @@ fun EditorScreen(
             Column(
                 modifier = Modifier
                     .fillMaxSize()
-                    .verticalScroll(rememberScrollState())
+                    .verticalScroll(scrollState)
                     .padding(horizontal = 18.dp, vertical = 12.dp)
             ) {
                 // Title Field: plain text field, medium-large font size, light gray placeholder "শিরোনাম...", no border/underline
@@ -580,7 +595,7 @@ fun EditorScreen(
                     cursorBrush = SolidColor(AmberAccent),
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(IntrinsicSize.Min),
+                        .heightIn(min = 250.dp),
                     decorationBox = { innerTextField ->
                         if (noteState.content.isEmpty()) {
                             Text(
@@ -595,7 +610,7 @@ fun EditorScreen(
                     }
                 )
 
-                Spacer(modifier = Modifier.height(120.dp))
+                Spacer(modifier = Modifier.height(200.dp))
             }
         }
     }
@@ -660,76 +675,6 @@ fun EditorScreen(
                 onBack()
             },
             onDismiss = { showDeleteDialog = false }
-        )
-    }
-
-    if (showTopBarTitleDialog) {
-        var tempName by remember { mutableStateOf(editorTopBarName) }
-        androidx.compose.material3.AlertDialog(
-            onDismissRequest = { showTopBarTitleDialog = false },
-            title = {
-                Text(
-                    text = "টপ বারের নাম পরিবর্তন",
-                    fontSize = 18.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = GoldPrimary
-                )
-            },
-            text = {
-                Column {
-                    Text(
-                        text = "এডিটর স্ক্রিনের একদম উপরে নিজস্ব নাম বা খাতার শিরোনাম ব্যবহার করুন:",
-                        fontSize = 13.sp,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Spacer(modifier = Modifier.height(12.dp))
-                    BasicTextField(
-                        value = tempName,
-                        onValueChange = { tempName = it },
-                        singleLine = true,
-                        textStyle = TextStyle(
-                            fontSize = 16.sp,
-                            fontWeight = FontWeight.Medium,
-                            color = MaterialTheme.colorScheme.onSurface
-                        ),
-                        cursorBrush = SolidColor(GoldPrimary),
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .border(1.dp, GoldPrimary, RoundedCornerShape(10.dp))
-                            .padding(12.dp)
-                    )
-                }
-            },
-            confirmButton = {
-                androidx.compose.material3.Button(
-                    onClick = {
-                        mainViewModel.updateEditorTopBarName(tempName)
-                        showTopBarTitleDialog = false
-                    },
-                    colors = androidx.compose.material3.ButtonDefaults.buttonColors(containerColor = GoldPrimary)
-                ) {
-                    Text("সংরক্ষণ করুন", color = Color.White)
-                }
-            },
-            dismissButton = {
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    androidx.compose.material3.TextButton(
-                        onClick = {
-                            mainViewModel.resetEditorTopBarName()
-                            showTopBarTitleDialog = false
-                        }
-                    ) {
-                        Text("ডিফল্ট নাম", color = MaterialTheme.colorScheme.error)
-                    }
-                    androidx.compose.material3.TextButton(
-                        onClick = { showTopBarTitleDialog = false }
-                    ) {
-                        Text("বাতিল", color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    }
-                }
-            },
-            shape = RoundedCornerShape(16.dp),
-            containerColor = MaterialTheme.colorScheme.surface
         )
     }
 }
