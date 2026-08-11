@@ -27,7 +27,11 @@ import androidx.compose.material.icons.outlined.Folder
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.LightMode
 import androidx.compose.material.icons.outlined.Lock
+import androidx.compose.material.icons.outlined.Palette
 import androidx.compose.material.icons.outlined.PictureAsPdf
+import androidx.compose.material.icons.outlined.PrivacyTip
+import androidx.compose.material.icons.outlined.Settings
+import androidx.compose.material.icons.outlined.Shield
 import androidx.compose.material.icons.outlined.PushPin
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -145,6 +149,9 @@ fun NavigationDrawerContent(
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = 12.dp)
         ) {
+            // ================= SECTION 1: "নোটস" =================
+            DrawerSectionHeader(title = "নোটস")
+
             DrawerMenuItem(
                 icon = Icons.Outlined.Description,
                 label = "সব নোট",
@@ -195,15 +202,15 @@ fun NavigationDrawerContent(
                 }
             )
 
-            DrawerMenuItem(
-                icon = Icons.Outlined.Backup,
-                label = "ব্যাকআপ ও রিস্টোর",
-                isSelected = currentScreen is Screen.BackupRestore,
-                onClick = {
-                    onNavigate(Screen.BackupRestore)
-                    onCloseDrawer()
-                }
+            Spacer(modifier = Modifier.height(10.dp))
+            HorizontalDivider(
+                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
+                modifier = Modifier.padding(horizontal = 6.dp)
             )
+            Spacer(modifier = Modifier.height(6.dp))
+
+            // ================= SECTION 2: "টুলস" =================
+            DrawerSectionHeader(title = "টুলস")
 
             DrawerMenuItem(
                 icon = Icons.Outlined.PictureAsPdf,
@@ -215,25 +222,39 @@ fun NavigationDrawerContent(
                 }
             )
 
-            Spacer(modifier = Modifier.height(12.dp))
-            HorizontalDivider(
-                color = MaterialTheme.colorScheme.outlineVariant,
-                modifier = Modifier.padding(horizontal = 8.dp)
+            DrawerMenuItem(
+                icon = Icons.Outlined.Backup,
+                label = "ব্যাকআপ ও রিস্টোর",
+                isSelected = currentScreen is Screen.BackupRestore,
+                onClick = {
+                    onNavigate(Screen.BackupRestore)
+                    onCloseDrawer()
+                }
             )
-            Spacer(modifier = Modifier.height(12.dp))
 
-            // Dark mode toggle row
+            Spacer(modifier = Modifier.height(10.dp))
+            HorizontalDivider(
+                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
+                modifier = Modifier.padding(horizontal = 6.dp)
+            )
+            Spacer(modifier = Modifier.height(6.dp))
+
+            // ================= SECTION 3: "কাস্টমাইজেশন" =================
+            DrawerSectionHeader(title = "কাস্টমাইজেশন")
+
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
+                    .padding(vertical = 2.dp)
                     .clip(RoundedCornerShape(12.dp))
-                    .padding(horizontal = 12.dp, vertical = 8.dp),
+                    .padding(horizontal = 12.dp, vertical = 6.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
+                    Spacer(modifier = Modifier.width(14.dp))
                     Icon(
                         imageVector = if (isDarkMode) Icons.Outlined.DarkMode else Icons.Outlined.LightMode,
                         contentDescription = "Theme Icon",
@@ -242,7 +263,7 @@ fun NavigationDrawerContent(
                     )
                     Spacer(modifier = Modifier.width(14.dp))
                     Text(
-                        text = if (isDarkMode) "ডার্ক মোড" else "লাইট মোড",
+                        text = if (isDarkMode) "ডার্ক মোড সক্রিয়" else "লাইট মোড সক্রিয়",
                         fontSize = 15.sp,
                         fontWeight = FontWeight.Medium,
                         color = onSurface
@@ -261,12 +282,42 @@ fun NavigationDrawerContent(
                 )
             }
 
+            Spacer(modifier = Modifier.height(10.dp))
+            HorizontalDivider(
+                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
+                modifier = Modifier.padding(horizontal = 6.dp)
+            )
+            Spacer(modifier = Modifier.height(6.dp))
+
+            // ================= SECTION 4: "সেটিংস ও তথ্য" =================
+            DrawerSectionHeader(title = "সেটিংস ও তথ্য")
+
+            DrawerMenuItem(
+                icon = Icons.Outlined.Settings,
+                label = "সেটিংস",
+                isSelected = currentScreen is Screen.Settings,
+                onClick = {
+                    onNavigate(Screen.Settings)
+                    onCloseDrawer()
+                }
+            )
+
             DrawerMenuItem(
                 icon = Icons.Outlined.Info,
-                label = "সেটিংস ও অ্যাপ সম্পর্কে",
-                isSelected = currentScreen is Screen.SettingsAbout,
+                label = "অ্যাপ সম্পর্কে",
+                isSelected = currentScreen is Screen.About,
                 onClick = {
-                    onNavigate(Screen.SettingsAbout)
+                    onNavigate(Screen.About)
+                    onCloseDrawer()
+                }
+            )
+
+            DrawerMenuItem(
+                icon = Icons.Outlined.Shield,
+                label = "প্রাইভেসি পলিসি",
+                isSelected = currentScreen is Screen.PrivacyPolicy,
+                onClick = {
+                    onNavigate(Screen.PrivacyPolicy)
                     onCloseDrawer()
                 }
             )
@@ -286,6 +337,17 @@ fun NavigationDrawerContent(
             )
         }
     }
+}
+
+@Composable
+fun DrawerSectionHeader(title: String) {
+    Text(
+        text = title,
+        fontSize = 12.sp,
+        fontWeight = FontWeight.Bold,
+        color = GoldPrimary,
+        modifier = Modifier.padding(start = 12.dp, top = 8.dp, bottom = 4.dp)
+    )
 }
 
 @Composable
