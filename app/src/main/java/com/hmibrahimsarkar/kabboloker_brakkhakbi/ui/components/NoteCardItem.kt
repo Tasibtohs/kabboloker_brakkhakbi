@@ -389,3 +389,318 @@ fun NoteCardItem(
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+fun NoteListItem(
+    note: NoteEntity,
+    modifier: Modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+    isSelected: Boolean = false,
+    isInSelectionMode: Boolean = false,
+    groupName: String? = null,
+    onClick: () -> Unit,
+    onLongClick: () -> Unit,
+    onTogglePin: () -> Unit,
+    onToggleLock: () -> Unit = {},
+    onDelete: () -> Unit = {},
+    onRemoveFromGroup: (() -> Unit)? = null,
+    onUnhide: (() -> Unit)? = null
+) {
+    val cardBg = MaterialTheme.colorScheme.surface
+    val titleColor = resolveAdaptiveTitleColor(note.titleColorHex)
+    val fontOption = BengaliFonts.getFontByKey(note.fontFamilyKey)
+
+    Card(
+        modifier = modifier
+            .fillMaxWidth()
+            .border(
+                width = if (isSelected) 2.dp else 0.8.dp,
+                color = if (isSelected) GoldPrimary else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
+                shape = RoundedCornerShape(12.dp)
+            )
+            .combinedClickable(
+                onClick = onClick,
+                onLongClick = onLongClick
+            ),
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(containerColor = cardBg),
+        elevation = CardDefaults.cardElevation(defaultElevation = if (isSelected) 4.dp else 1.dp)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 12.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            if (isInSelectionMode || isSelected) {
+                Icon(
+                    imageVector = if (isSelected) Icons.Filled.CheckCircle else Icons.Outlined.CheckCircleOutline,
+                    contentDescription = null,
+                    tint = if (isSelected) GoldPrimary else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
+                    modifier = Modifier.size(20.dp)
+                )
+                Spacer(modifier = Modifier.width(10.dp))
+            }
+
+            Column(
+                modifier = Modifier.weight(1f)
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    val titleText = if (note.title.isNotBlank()) note.title else "শিরোনামহীন"
+                    Text(
+                        text = titleText,
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.Bold,
+                        fontFamily = fontOption.fontFamily,
+                        color = titleColor,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f, fill = false)
+                    )
+
+                    if (!isInSelectionMode) {
+                        if (note.isLocked) {
+                            Icon(
+                                imageVector = Icons.Filled.Lock,
+                                contentDescription = "Locked",
+                                tint = Color(0xFFC62828),
+                                modifier = Modifier.size(14.dp)
+                            )
+                        }
+                        if (note.isPinned) {
+                            Icon(
+                                imageVector = Icons.Filled.PushPin,
+                                contentDescription = "Pinned",
+                                tint = AmberAccent,
+                                modifier = Modifier.size(14.dp)
+                            )
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(2.dp))
+
+                val previewText = if (note.isLocked) "🔒 সুরক্ষিত কবিতা" else if (note.content.isNotBlank()) note.content else "কোনো লেখা নেই..."
+                Text(
+                    text = previewText,
+                    fontSize = 12.sp,
+                    fontFamily = fontOption.fontFamily,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+
+                Spacer(modifier = Modifier.height(4.dp))
+
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    if (groupName != null) {
+                        Text(
+                            text = "📁 $groupName",
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = AmberAccent
+                        )
+                    }
+                    Text(
+                        text = getBengaliFormattedDateTime(note.updatedAt),
+                        fontSize = 10.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+                    )
+                }
+            }
+
+            if (!isInSelectionMode) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(0.dp)
+                ) {
+                    IconButton(onClick = onTogglePin, modifier = Modifier.size(28.dp)) {
+                        Icon(
+                            imageVector = if (note.isPinned) Icons.Filled.PushPin else Icons.Outlined.PushPin,
+                            contentDescription = "Pin",
+                            tint = if (note.isPinned) AmberAccent else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+                            modifier = Modifier.size(15.dp)
+                        )
+                    }
+                    IconButton(onClick = onDelete, modifier = Modifier.size(28.dp)) {
+                        Icon(
+                            imageVector = Icons.Outlined.Delete,
+                            contentDescription = "Delete",
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+                            modifier = Modifier.size(15.dp)
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+fun NoteGridItem(
+    note: NoteEntity,
+    modifier: Modifier = Modifier,
+    isSelected: Boolean = false,
+    isInSelectionMode: Boolean = false,
+    groupName: String? = null,
+    onClick: () -> Unit,
+    onLongClick: () -> Unit,
+    onTogglePin: () -> Unit,
+    onToggleLock: () -> Unit = {},
+    onDelete: () -> Unit = {},
+    onRemoveFromGroup: (() -> Unit)? = null,
+    onUnhide: (() -> Unit)? = null
+) {
+    val cardBg = MaterialTheme.colorScheme.surface
+    val titleColor = resolveAdaptiveTitleColor(note.titleColorHex)
+    val fontOption = BengaliFonts.getFontByKey(note.fontFamilyKey)
+
+    Card(
+        modifier = modifier
+            .fillMaxWidth()
+            .border(
+                width = if (isSelected) 2.dp else 1.dp,
+                color = if (isSelected) GoldPrimary else MaterialTheme.colorScheme.outlineVariant,
+                shape = RoundedCornerShape(14.dp)
+            )
+            .combinedClickable(
+                onClick = onClick,
+                onLongClick = onLongClick
+            ),
+        shape = RoundedCornerShape(14.dp),
+        colors = CardDefaults.cardColors(containerColor = cardBg),
+        elevation = CardDefaults.cardElevation(defaultElevation = if (isSelected) 6.dp else 2.dp)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(12.dp)
+        ) {
+            if (groupName != null) {
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(6.dp))
+                        .background(AmberAccent.copy(alpha = 0.12f))
+                        .padding(horizontal = 6.dp, vertical = 2.dp)
+                ) {
+                    Text(
+                        text = groupName,
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = AmberAccent,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+                Spacer(modifier = Modifier.height(4.dp))
+            }
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.Top
+            ) {
+                val titleText = if (note.title.isNotBlank()) note.title else "শিরোনামহীন"
+                Text(
+                    text = titleText,
+                    fontSize = 15.sp,
+                    fontWeight = FontWeight.Bold,
+                    fontFamily = fontOption.fontFamily,
+                    color = titleColor,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f)
+                )
+
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(2.dp)
+                ) {
+                    if (!isInSelectionMode) {
+                        if (note.isLocked) {
+                            Icon(
+                                imageVector = Icons.Filled.Lock,
+                                contentDescription = null,
+                                tint = Color(0xFFC62828),
+                                modifier = Modifier.size(14.dp)
+                            )
+                        }
+                        if (note.isPinned) {
+                            Icon(
+                                imageVector = Icons.Filled.PushPin,
+                                contentDescription = null,
+                                tint = AmberAccent,
+                                modifier = Modifier.size(14.dp)
+                            )
+                        }
+                    }
+                    if (isInSelectionMode || isSelected) {
+                        Icon(
+                            imageVector = if (isSelected) Icons.Filled.CheckCircle else Icons.Outlined.CheckCircleOutline,
+                            contentDescription = null,
+                            tint = if (isSelected) GoldPrimary else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(6.dp))
+
+            val previewText = if (note.isLocked) "🔒 সুরক্ষিত কবিতা" else if (note.content.isNotBlank()) note.content else "কোনো লেখা নেই..."
+            Text(
+                text = previewText,
+                fontSize = 12.sp,
+                fontFamily = fontOption.fontFamily,
+                color = resolveAdaptiveTextColor(note.textColorHex).copy(alpha = 0.8f),
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+                lineHeight = 17.sp
+            )
+
+            Spacer(modifier = Modifier.height(10.dp))
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = getBengaliFormattedDateTime(note.updatedAt),
+                    fontSize = 10.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+
+                if (!isInSelectionMode) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+                        IconButton(onClick = onTogglePin, modifier = Modifier.size(24.dp)) {
+                            Icon(
+                                imageVector = if (note.isPinned) Icons.Filled.PushPin else Icons.Outlined.PushPin,
+                                contentDescription = null,
+                                tint = if (note.isPinned) AmberAccent else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+                                modifier = Modifier.size(14.dp)
+                            )
+                        }
+                        IconButton(onClick = onDelete, modifier = Modifier.size(24.dp)) {
+                            Icon(
+                                imageVector = Icons.Outlined.Delete,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+                                modifier = Modifier.size(14.dp)
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
