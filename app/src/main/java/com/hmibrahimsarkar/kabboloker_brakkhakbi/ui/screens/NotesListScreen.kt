@@ -102,11 +102,14 @@ import com.hmibrahimsarkar.kabboloker_brakkhakbi.data.local.entity.NoteEntity
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Folder
 import androidx.compose.material.icons.outlined.VisibilityOff
+import androidx.compose.material.icons.outlined.ViewAgenda
 import com.hmibrahimsarkar.kabboloker_brakkhakbi.ui.components.AppTopBar
 import com.hmibrahimsarkar.kabboloker_brakkhakbi.ui.components.AssignGroupDialog
 import com.hmibrahimsarkar.kabboloker_brakkhakbi.ui.components.DeleteConfirmationDialog
 import com.hmibrahimsarkar.kabboloker_brakkhakbi.ui.components.InfoBar
 import com.hmibrahimsarkar.kabboloker_brakkhakbi.ui.components.NoteCardItem
+import com.hmibrahimsarkar.kabboloker_brakkhakbi.ui.components.NoteGridItem
+import com.hmibrahimsarkar.kabboloker_brakkhakbi.ui.components.NoteListItem
 import com.hmibrahimsarkar.kabboloker_brakkhakbi.ui.components.PasswordPromptDialog
 import com.hmibrahimsarkar.kabboloker_brakkhakbi.ui.theme.AmberAccent
 import com.hmibrahimsarkar.kabboloker_brakkhakbi.ui.theme.GoldDark
@@ -144,9 +147,9 @@ fun NotesListScreen(
     val isDarkMode by viewModel.isDarkMode.collectAsState()
 
     val savedPasswordHash by viewModel.appPasswordHash.collectAsState()
+    val currentViewMode by viewModel.viewModePreference.collectAsState()
 
     val context = LocalContext.current
-    var isGridView by remember { mutableStateOf(false) }
     var showAssignGroupDialog by remember { mutableStateOf(false) }
     var showDeleteConfirmModal by remember { mutableStateOf(false) }
     var noteToDelete by remember { mutableStateOf<NoteEntity?>(null) }
@@ -171,22 +174,30 @@ fun NotesListScreen(
                     }
                 },
                 actions = {
-                    val gridIconRotation by animateFloatAsState(
-                        targetValue = if (isGridView) 180f else 0f,
-                        animationSpec = spring(
-                            dampingRatio = Spring.DampingRatioMediumBouncy,
-                            stiffness = Spring.StiffnessLow
-                        ),
-                        label = "gridIconRotation"
-                    )
-                    IconButton(onClick = { isGridView = !isGridView }) {
+                    val viewIcon = when (currentViewMode) {
+                        "GRID" -> Icons.Outlined.GridView
+                        "LIST" -> Icons.Outlined.ViewList
+                        else -> Icons.Outlined.ViewAgenda
+                    }
+                    val viewDesc = when (currentViewMode) {
+                        "GRID" -> "গ্রিড ভিউ"
+                        "LIST" -> "লিস্ট ভিউ"
+                        else -> "কার্ড ভিউ"
+                    }
+                    IconButton(onClick = {
+                        val nextMode = when (currentViewMode) {
+                            "CARD" -> "GRID"
+                            "GRID" -> "LIST"
+                            "LIST" -> "CARD"
+                            else -> "CARD"
+                        }
+                        viewModel.setViewMode(nextMode)
+                    }) {
                         Icon(
-                            imageVector = if (isGridView) Icons.Outlined.ViewList else Icons.Outlined.GridView,
-                            contentDescription = if (isGridView) "List View" else "Grid View",
+                            imageVector = viewIcon,
+                            contentDescription = viewDesc,
                             tint = AmberAccent,
-                            modifier = Modifier
-                                .size(24.dp)
-                                .rotate(gridIconRotation)
+                            modifier = Modifier.size(24.dp)
                         )
                     }
                 }
@@ -554,7 +565,7 @@ fun NotesListScreen(
                 }
             } else {
                 AnimatedContent(
-                    targetState = isGridView,
+                    targetState = currentViewMode,
                     transitionSpec = {
                         (fadeIn(animationSpec = spring(stiffness = Spring.StiffnessMediumLow)) +
                                 scaleIn(
@@ -575,91 +586,148 @@ fun NotesListScreen(
                     },
                     label = "LayoutSwitchTransition",
                     modifier = Modifier.fillMaxSize()
-                ) { targetIsGrid ->
-                    if (targetIsGrid) {
-                        LazyVerticalStaggeredGrid(
-                            columns = StaggeredGridCells.Fixed(2),
-                            contentPadding = PaddingValues(start = 12.dp, end = 12.dp, top = 4.dp, bottom = 110.dp),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            verticalItemSpacing = 8.dp,
-                            modifier = Modifier.fillMaxSize()
-                        ) {
-                            items(
-                                items = notes,
-                                key = { it.id }
-                            ) { note ->
-                                val group = allGroups.find { it.id == note.groupId }
-                                val isSelected = selectedNoteIds.contains(note.id)
+                ) { targetMode ->
+                    when (targetMode) {
+                        "GRID" -> {
+                            LazyVerticalStaggeredGrid(
+                                columns = StaggeredGridCells.Fixed(2),
+                                contentPadding = PaddingValues(start = 12.dp, end = 12.dp, top = 4.dp, bottom = 110.dp),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                verticalItemSpacing = 8.dp,
+                                modifier = Modifier.fillMaxSize()
+                            ) {
+                                items(
+                                    items = notes,
+                                    key = { it.id }
+                                ) { note ->
+                                    val group = allGroups.find { it.id == note.groupId }
+                                    val isSelected = selectedNoteIds.contains(note.id)
 
-                                NoteCardItem(
-                                    note = note,
-                                    modifier = Modifier.padding(0.dp),
-                                    isSelected = isSelected,
-                                    isInSelectionMode = selectedNoteIds.isNotEmpty(),
-                                    groupName = group?.name,
-                                    onClick = {
-                                        if (selectedNoteIds.isNotEmpty()) {
+                                    NoteGridItem(
+                                        note = note,
+                                        modifier = Modifier.padding(0.dp),
+                                        isSelected = isSelected,
+                                        isInSelectionMode = selectedNoteIds.isNotEmpty(),
+                                        groupName = group?.name,
+                                        onClick = {
+                                            if (selectedNoteIds.isNotEmpty()) {
+                                                viewModel.toggleNoteSelection(note.id)
+                                            } else {
+                                                if (note.isLocked) {
+                                                    pendingLockedNote = note
+                                                } else {
+                                                    onOpenEditor(note.id)
+                                                }
+                                            }
+                                        },
+                                        onLongClick = {
                                             viewModel.toggleNoteSelection(note.id)
-                                        } else {
-                                            onOpenEditor(note.id)
+                                        },
+                                        onTogglePin = {
+                                            viewModel.togglePinNote(note)
+                                        },
+                                        onToggleLock = {
+                                            viewModel.toggleLockNote(note)
+                                            val msg = if (note.isLocked) "নোটের লক খোলা হয়েছে" else "নোট লক করা হয়েছে"
+                                            Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
+                                        },
+                                        onDelete = {
+                                            noteToDelete = note
                                         }
-                                    },
-                                    onLongClick = {
-                                        viewModel.toggleNoteSelection(note.id)
-                                    },
-                                    onTogglePin = {
-                                        viewModel.togglePinNote(note)
-                                    },
-                                    onToggleLock = {
-                                        viewModel.toggleLockNote(note)
-                                        val msg = if (note.isLocked) "নোটের লক খোলা হয়েছে" else "নোট লক করা হয়েছে"
-                                        Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
-                                    },
-                                    onDelete = {
-                                        noteToDelete = note
-                                    }
-                                )
+                                    )
+                                }
                             }
                         }
-                    } else {
-                        LazyColumn(
-                            contentPadding = PaddingValues(start = 0.dp, end = 0.dp, top = 4.dp, bottom = 110.dp),
-                            modifier = Modifier.fillMaxSize()
-                        ) {
-                            items(
-                                items = notes,
-                                key = { it.id }
-                            ) { note ->
-                                val group = allGroups.find { it.id == note.groupId }
-                                val isSelected = selectedNoteIds.contains(note.id)
+                        "LIST" -> {
+                            LazyColumn(
+                                contentPadding = PaddingValues(start = 0.dp, end = 0.dp, top = 4.dp, bottom = 110.dp),
+                                modifier = Modifier.fillMaxSize()
+                            ) {
+                                items(
+                                    items = notes,
+                                    key = { it.id }
+                                ) { note ->
+                                    val group = allGroups.find { it.id == note.groupId }
+                                    val isSelected = selectedNoteIds.contains(note.id)
 
-                                NoteCardItem(
-                                    note = note,
-                                    isSelected = isSelected,
-                                    isInSelectionMode = selectedNoteIds.isNotEmpty(),
-                                    groupName = group?.name,
-                                    onClick = {
-                                        if (selectedNoteIds.isNotEmpty()) {
+                                    NoteListItem(
+                                        note = note,
+                                        isSelected = isSelected,
+                                        isInSelectionMode = selectedNoteIds.isNotEmpty(),
+                                        groupName = group?.name,
+                                        onClick = {
+                                            if (selectedNoteIds.isNotEmpty()) {
+                                                viewModel.toggleNoteSelection(note.id)
+                                            } else {
+                                                if (note.isLocked) {
+                                                    pendingLockedNote = note
+                                                } else {
+                                                    onOpenEditor(note.id)
+                                                }
+                                            }
+                                        },
+                                        onLongClick = {
                                             viewModel.toggleNoteSelection(note.id)
-                                        } else {
-                                            onOpenEditor(note.id)
+                                        },
+                                        onTogglePin = {
+                                            viewModel.togglePinNote(note)
+                                        },
+                                        onToggleLock = {
+                                            viewModel.toggleLockNote(note)
+                                            val msg = if (note.isLocked) "নোটের লক খোলা হয়েছে" else "নোট লক করা হয়েছে"
+                                            Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
+                                        },
+                                        onDelete = {
+                                            noteToDelete = note
                                         }
-                                    },
-                                    onLongClick = {
-                                        viewModel.toggleNoteSelection(note.id)
-                                    },
-                                    onTogglePin = {
-                                        viewModel.togglePinNote(note)
-                                    },
-                                    onToggleLock = {
-                                        viewModel.toggleLockNote(note)
-                                        val msg = if (note.isLocked) "নোটের লক খোলা হয়েছে" else "নোট লক করা হয়েছে"
-                                        Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
-                                    },
-                                    onDelete = {
-                                        noteToDelete = note
-                                    }
-                                )
+                                    )
+                                }
+                            }
+                        }
+                        else -> { // "CARD" (Default)
+                            LazyColumn(
+                                contentPadding = PaddingValues(start = 0.dp, end = 0.dp, top = 4.dp, bottom = 110.dp),
+                                modifier = Modifier.fillMaxSize()
+                            ) {
+                                items(
+                                    items = notes,
+                                    key = { it.id }
+                                ) { note ->
+                                    val group = allGroups.find { it.id == note.groupId }
+                                    val isSelected = selectedNoteIds.contains(note.id)
+
+                                    NoteCardItem(
+                                        note = note,
+                                        isSelected = isSelected,
+                                        isInSelectionMode = selectedNoteIds.isNotEmpty(),
+                                        groupName = group?.name,
+                                        onClick = {
+                                            if (selectedNoteIds.isNotEmpty()) {
+                                                viewModel.toggleNoteSelection(note.id)
+                                            } else {
+                                                if (note.isLocked) {
+                                                    pendingLockedNote = note
+                                                } else {
+                                                    onOpenEditor(note.id)
+                                                }
+                                            }
+                                        },
+                                        onLongClick = {
+                                            viewModel.toggleNoteSelection(note.id)
+                                        },
+                                        onTogglePin = {
+                                            viewModel.togglePinNote(note)
+                                        },
+                                        onToggleLock = {
+                                            viewModel.toggleLockNote(note)
+                                            val msg = if (note.isLocked) "নোটের লক খোলা হয়েছে" else "নোট লক করা হয়েছে"
+                                            Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
+                                        },
+                                        onDelete = {
+                                            noteToDelete = note
+                                        }
+                                    )
+                                }
                             }
                         }
                     }
