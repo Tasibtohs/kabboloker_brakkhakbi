@@ -48,6 +48,9 @@ sealed class Screen {
     object Trash : Screen()
     object BackupRestore : Screen()
     object SettingsAbout : Screen()
+    object Settings : Screen()
+    object About : Screen()
+    object PrivacyPolicy : Screen()
 }
 
 class MainViewModel(application: Application) : AndroidViewModel(application) {
@@ -82,9 +85,19 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     val viewModePreference: StateFlow<String> = themePreferences.viewModePreference
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "CARD")
 
+    // Sort Order preference (NEWEST_FIRST, OLDEST_FIRST, TITLE_ASC, TITLE_DESC)
+    val sortOrderPreference: StateFlow<String> = themePreferences.sortOrderPreference
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "NEWEST_FIRST")
+
     fun setViewMode(mode: String) {
         viewModelScope.launch {
             themePreferences.setViewModePreference(mode)
+        }
+    }
+
+    fun setSortOrder(order: String) {
+        viewModelScope.launch {
+            themePreferences.setSortOrderPreference(order)
         }
     }
 
@@ -125,6 +138,12 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    fun setAppPassword(password: String, question: String = "", answer: String = "") {
+        viewModelScope.launch {
+            themePreferences.setAppPassword(password, question, answer)
+        }
+    }
+
     // Password Hash preference
     val appPasswordHash: StateFlow<String?> = themePreferences.appPasswordHash
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
@@ -137,18 +156,40 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val _selectedGroupId = MutableStateFlow<Long?>(null)
     val selectedGroupId: StateFlow<Long?> = _selectedGroupId.asStateFlow()
 
-    // Notes Flow based on search or group
+    // Notes Flow based on search, group, and sort order
     @OptIn(FlowPreview::class)
     val notesList: StateFlow<List<NoteEntity>> = combine(
         _searchQuery.debounce(200),
-        _selectedGroupId
-    ) { query, groupId ->
-        Pair(query, groupId)
-    }.flatMapLatest { (query, groupId) ->
-        when {
+        _selectedGroupId,
+        themePreferences.sortOrderPreference
+    ) { query, groupId, sortOrder ->
+        Triple(query, groupId, sortOrder)
+    }.flatMapLatest { (query, groupId, sortOrder) ->
+        val baseFlow = when {
             query.isNotBlank() -> repository.searchNotes(query)
             groupId != null -> repository.getNotesByGroup(groupId)
             else -> repository.activeNotes
+        }
+        baseFlow.map { list ->
+            val bnCollator = java.text.Collator.getInstance(java.util.Locale("bn", "BD"))
+            when (sortOrder) {
+                "OLDEST_FIRST" -> list.sortedWith(
+                    compareByDescending<NoteEntity> { it.isPinned }
+                        .thenBy { it.updatedAt }
+                )
+                "TITLE_ASC" -> list.sortedWith(
+                    compareByDescending<NoteEntity> { it.isPinned }
+                        .thenBy(bnCollator) { if (it.title.isBlank()) " " else it.title }
+                )
+                "TITLE_DESC" -> list.sortedWith(
+                    compareByDescending<NoteEntity> { it.isPinned }
+                        .thenByDescending(bnCollator) { if (it.title.isBlank()) " " else it.title }
+                )
+                else -> list.sortedWith( // "NEWEST_FIRST"
+                    compareByDescending<NoteEntity> { it.isPinned }
+                        .thenByDescending { it.updatedAt }
+                )
+            }
         }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
@@ -349,7 +390,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     nObj.put("id", n.id)
                     nObj.put("title", n.title)
                     nObj.put("content", n.content)
-                    nObj.put("category", "")
+                    nObj.put("category", n.category)
                     nObj.put("titleColorHex", n.titleColorHex)
                     nObj.put("textColorHex", n.textColorHex)
                     nObj.put("fontFamilyKey", n.fontFamilyKey)
@@ -415,6 +456,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                             id = nObj.optLong("id", 0),
                             title = nObj.optString("title", ""),
                             content = nObj.optString("content", ""),
+                            category = nObj.optString("category", ""),
                             titleColorHex = nObj.optString("titleColorHex", "#D4A017"),
                             textColorHex = nObj.optString("textColorHex", "#1A1A2E"),
                             fontFamilyKey = nObj.optString("fontFamilyKey", "hind_siliguri"),
