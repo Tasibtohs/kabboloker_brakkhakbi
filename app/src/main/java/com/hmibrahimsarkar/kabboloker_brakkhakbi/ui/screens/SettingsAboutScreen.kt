@@ -1,9 +1,14 @@
 package com.hmibrahimsarkar.kabboloker_brakkhakbi.ui.screens
 
+import android.content.Context
+import android.content.Intent
+import android.net.Uri
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -16,71 +21,57 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.CleaningServices
-import androidx.compose.material.icons.filled.DarkMode
-import androidx.compose.material.icons.filled.FormatSize
-import androidx.compose.material.icons.filled.Notifications
-import androidx.compose.material.icons.filled.Security
-import androidx.compose.material3.AlertDialog
+import androidx.compose.material.icons.filled.Email
+import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Share
+import androidx.compose.material.icons.filled.SignalWifiOff
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilterChip
-import androidx.compose.material3.FilterChipDefaults
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Switch
-import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.hmibrahimsarkar.kabboloker_brakkhakbi.R
 import com.hmibrahimsarkar.kabboloker_brakkhakbi.ui.components.AppTopBar
-import com.hmibrahimsarkar.kabboloker_brakkhakbi.ui.components.SetPasswordDialog
 import com.hmibrahimsarkar.kabboloker_brakkhakbi.ui.theme.AmberAccent
+import com.hmibrahimsarkar.kabboloker_brakkhakbi.ui.theme.AppBodyFont
+import com.hmibrahimsarkar.kabboloker_brakkhakbi.ui.theme.AppTitleFont
 import com.hmibrahimsarkar.kabboloker_brakkhakbi.ui.theme.GoldDark
 import com.hmibrahimsarkar.kabboloker_brakkhakbi.ui.theme.GoldLight
 import com.hmibrahimsarkar.kabboloker_brakkhakbi.ui.theme.GoldPrimary
-import com.hmibrahimsarkar.kabboloker_brakkhakbi.ui.viewmodel.MainViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SettingsScreen(
-    viewModel: MainViewModel,
+fun AboutScreen(
     onBack: () -> Unit
 ) {
     val context = LocalContext.current
-    val isDarkMode by viewModel.isDarkMode.collectAsState()
-    val passwordHash by viewModel.appPasswordHash.collectAsState()
-    val isNotificationsEnabled by viewModel.isNotificationsEnabled.collectAsState()
-    val fontSizePreference by viewModel.fontSizePreference.collectAsState()
-    val currentTopBarName by viewModel.editorTopBarName.collectAsState()
-
-    var showSetPasswordDialog by remember { mutableStateOf(false) }
-    var showClearCacheDialog by remember { mutableStateOf(false) }
 
     BackHandler {
         onBack()
@@ -89,8 +80,8 @@ fun SettingsScreen(
     Scaffold(
         topBar = {
             AppTopBar(
-                title = "সেটিংস",
-                subtitle = "অ্যাপ কনফিগারেশন ও কাস্টমাইজেশন",
+                title = "অ্যাপ সম্পর্কে",
+                subtitle = "লেখক, কবি ও অ্যাপ পরিচিতি",
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(
@@ -111,375 +102,365 @@ fun SettingsScreen(
                 .background(MaterialTheme.colorScheme.background)
                 .verticalScroll(rememberScrollState())
                 .padding(20.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+            verticalArrangement = Arrangement.spacedBy(20.dp)
         ) {
 
-            // ================= 1. EDITOR TOP BAR NAME CUSTOMIZATION =================
-            var inputTopBarName by remember(currentTopBarName) { mutableStateOf(currentTopBarName) }
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(16.dp)),
-                shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
-            ) {
-                Column(
+            // ================= 1. DEVELOPER & AUTHOR PROFILE STAMP =================
+            Column(modifier = Modifier.fillMaxWidth()) {
+                Text(
+                    text = "তৈরি করেছেন",
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = GoldPrimary,
+                    modifier = Modifier.padding(bottom = 8.dp)
+                )
+
+                Card(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(16.dp)
+                        .shadow(8.dp, RoundedCornerShape(22.dp))
+                        .border(
+                            width = 1.5.dp,
+                            brush = Brush.linearGradient(
+                                colors = listOf(GoldLight, GoldPrimary, GoldDark.copy(alpha = 0.6f))
+                            ),
+                            shape = RoundedCornerShape(22.dp)
+                        ),
+                    shape = RoundedCornerShape(22.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.95f)
+                    )
                 ) {
-                    Text(
-                        text = "টপ বারের নাম (এডিটর স্ক্রিন)",
-                        fontSize = 15.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = GoldPrimary
-                    )
-                    Text(
-                        text = "এডিটর স্ক্রিনের একদম উপরে নিজস্ব ছদ্মনাম বা খাতার শিরোনাম প্রদর্শন করুন",
-                        fontSize = 12.sp,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-
-                    Spacer(modifier = Modifier.height(10.dp))
-
-                    OutlinedTextField(
-                        value = inputTopBarName,
-                        onValueChange = { inputTopBarName = it },
-                        label = { Text("টপ বার শিরোনাম") },
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(12.dp)
-                    )
-
-                    Spacer(modifier = Modifier.height(10.dp))
-
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.End,
-                        verticalAlignment = Alignment.CenterVertically
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(24.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
                     ) {
-                        OutlinedButton(
-                            onClick = {
-                                viewModel.resetEditorTopBarName()
-                                Toast.makeText(context, "ডিফল্ট নাম সেট করা হয়েছে", Toast.LENGTH_SHORT).show()
-                            },
-                            shape = RoundedCornerShape(10.dp)
+                        Box(
+                            modifier = Modifier
+                                .size(100.dp)
+                                .clip(CircleShape)
+                                .shadow(8.dp, CircleShape)
+                                .background(
+                                    Brush.radialGradient(
+                                        colors = listOf(
+                                            GoldLight.copy(alpha = 0.6f),
+                                            GoldPrimary.copy(alpha = 0.25f)
+                                        )
+                                    )
+                                )
+                                .border(2.5.dp, Brush.linearGradient(listOf(GoldLight, GoldPrimary, GoldDark)), CircleShape),
+                            contentAlignment = Alignment.Center
                         ) {
-                            Text("ডিফল্ট", color = MaterialTheme.colorScheme.error)
+                            Image(
+                                painter = painterResource(id = R.drawable.author_profile_photo_1785829533777),
+                                contentDescription = "এইচ.এম. ইব্রাহীম ত্বহা সরকার",
+                                contentScale = ContentScale.Crop,
+                                modifier = Modifier
+                                    .size(92.dp)
+                                    .clip(CircleShape)
+                            )
                         }
 
-                        Spacer(modifier = Modifier.width(8.dp))
+                        Spacer(modifier = Modifier.height(14.dp))
 
-                        Button(
-                            onClick = {
-                                viewModel.updateEditorTopBarName(inputTopBarName)
-                                Toast.makeText(context, "টপ বার নাম সংরক্ষিত হয়েছে", Toast.LENGTH_SHORT).show()
-                            },
-                            shape = RoundedCornerShape(10.dp),
-                            colors = ButtonDefaults.buttonColors(containerColor = GoldPrimary)
+                        val goldBrush = Brush.horizontalGradient(
+                            colors = listOf(GoldLight, GoldPrimary, GoldDark)
+                        )
+
+                        Text(
+                            text = "এইচ.এম. ইব্রাহীম ত্বহা সরকার",
+                            fontSize = 22.sp,
+                            fontWeight = FontWeight.Bold,
+                            fontFamily = AppTitleFont,
+                            textAlign = TextAlign.Center,
+                            style = MaterialTheme.typography.titleLarge.copy(brush = goldBrush)
+                        )
+
+                        Spacer(modifier = Modifier.height(4.dp))
+
+                        Text(
+                            text = "“কাব্যলোকের ব্রহ্মকবি”",
+                            fontSize = 15.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            fontFamily = AppTitleFont,
+                            color = GoldPrimary
+                        )
+
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        Text(
+                            text = "“শব্দে ও ছন্দে গাঁথা জীবনের অনাবিল অনুভূতিমালা”",
+                            fontSize = 13.sp,
+                            fontStyle = FontStyle.Italic,
+                            fontFamily = AppBodyFont,
+                            textAlign = TextAlign.Center,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+
+                        Spacer(modifier = Modifier.height(18.dp))
+                        HorizontalDivider(color = GoldPrimary.copy(alpha = 0.2f))
+                        Spacer(modifier = Modifier.height(18.dp))
+
+                        Text(
+                            text = "যোগাযোগের মাধ্যমসমূহ",
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = GoldPrimary,
+                            modifier = Modifier.padding(bottom = 12.dp)
+                        )
+
+                        Column(
+                            verticalArrangement = Arrangement.spacedBy(10.dp),
+                            modifier = Modifier.fillMaxWidth()
                         ) {
-                            Text("সংরক্ষণ", color = Color.White)
+                            Row(
+                                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                ContactCardItem(
+                                    modifier = Modifier.weight(1f),
+                                    title = "ফেসবুক",
+                                    subtitle = "প্রোফাইল খুলুন",
+                                    badgeText = "FB",
+                                    badgeColor = Color(0xFF1877F2),
+                                    onClick = {
+                                        openUrl(context, "https://www.facebook.com/h.m.ibrahimtohasarkar")
+                                    }
+                                )
+
+                                ContactCardItem(
+                                    modifier = Modifier.weight(1f),
+                                    title = "ইনস্টাগ্রাম",
+                                    subtitle = "প্রোফাইল খুলুন",
+                                    badgeText = "IG",
+                                    badgeColor = Color(0xFFE4405F),
+                                    onClick = {
+                                        openUrl(context, "https://www.instagram.com/h.m.ibrahimtohasarkar")
+                                    }
+                                )
+                            }
+
+                            Row(
+                                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                ContactCardItem(
+                                    modifier = Modifier.weight(1f),
+                                    title = "হোয়াটসঅ্যাপ",
+                                    subtitle = "+8801308556665",
+                                    badgeText = "WA",
+                                    badgeColor = Color(0xFF25D366),
+                                    onClick = {
+                                        openWhatsApp(context, "8801308556665")
+                                    }
+                                )
+
+                                ContactCardItem(
+                                    modifier = Modifier.weight(1f),
+                                    title = "ইমেইল",
+                                    subtitle = "hmibrahimsarkar712@gmail.com",
+                                    badgeText = "✉",
+                                    icon = Icons.Default.Email,
+                                    badgeColor = GoldPrimary,
+                                    onClick = {
+                                        openEmail(context, "hmibrahimsarkar712@gmail.com", "কাব্যলোকের ব্রহ্মকবি - যোগাযোগ")
+                                    }
+                                )
+                            }
                         }
                     }
                 }
             }
 
-            // ================= 2. FONT SIZE PREFERENCE =================
+            // ================= 2. ABOUT APP SECTION =================
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(16.dp)),
-                shape = RoundedCornerShape(16.dp),
+                    .border(1.dp, GoldPrimary.copy(alpha = 0.3f), RoundedCornerShape(18.dp)),
+                shape = RoundedCornerShape(18.dp),
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
             ) {
                 Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(16.dp)
+                    modifier = Modifier.padding(20.dp)
                 ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
                         Icon(
-                            imageVector = Icons.Filled.FormatSize,
-                            contentDescription = "Font Size",
+                            imageVector = Icons.Default.Info,
+                            contentDescription = "About",
                             tint = GoldPrimary,
                             modifier = Modifier.size(22.dp)
                         )
-                        Spacer(modifier = Modifier.width(12.dp))
-                        Column {
-                            Text(
-                                text = "গ্লোবাল ফন্ট সাইজ",
-                                fontSize = 15.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onSurface
-                            )
-                            Text(
-                                text = "কবিতা পড়া ও লেখার অক্ষরের আকার নির্বাচন করুন",
-                                fontSize = 12.sp,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
+                        Spacer(modifier = Modifier.width(10.dp))
+                        Text(
+                            text = "অ্যাপ সম্পর্কে",
+                            fontSize = 17.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = GoldPrimary
+                        )
                     }
 
                     Spacer(modifier = Modifier.height(12.dp))
 
+                    Text(
+                        text = "‘কাব্যলোকের ব্রহ্মকবি’ হলো কবি, সাহিত্যিক ও বাংলা শব্দপ্রেমীদের জন্য তৈরি একটি বিশেষায়িত কবিতা ও নোট লেখার ডিজিটাল ক্যানভাস। আপনার প্রিয় কবিতা, গান, গজল কিংবা ব্যক্তিগত ভাবনাসমূহকে নান্দনিক ফন্ট, কালার ও সুরক্ষার সাথে সংরক্ষণ করার পূর্ণ স্বাধীনতা দেয় এই অ্যাপটি।",
+                        fontSize = 13.5.sp,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        lineHeight = 22.sp
+                    )
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
                     Row(
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        modifier = Modifier.fillMaxWidth()
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        listOf(
-                            "small" to "ছোট",
-                            "medium" to "মাঝারি",
-                            "large" to "বড়"
-                        ).forEach { (key, label) ->
-                            val isSelected = fontSizePreference == key
-                            FilterChip(
-                                selected = isSelected,
-                                onClick = {
-                                    viewModel.setFontSizePreference(key)
-                                    Toast.makeText(context, "ফন্ট সাইজ '$label' নির্ধারণ করা হয়েছে", Toast.LENGTH_SHORT).show()
-                                },
-                                label = { Text(text = label) },
-                                colors = FilterChipDefaults.filterChipColors(
-                                    selectedContainerColor = GoldPrimary,
-                                    selectedLabelColor = Color.White
-                                ),
-                                modifier = Modifier.weight(1f)
-                            )
-                        }
+                        BadgeChipItem(text = "ভার্সন ১.০.০")
+                        BadgeChipItem(text = "১০০% অফলাইন")
+                        BadgeChipItem(text = "Room ডাটাবেস")
                     }
 
-                    Spacer(modifier = Modifier.height(8.dp))
+                    Spacer(modifier = Modifier.height(14.dp))
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
+                    Spacer(modifier = Modifier.height(14.dp))
 
-                    val sampleFontSize = when (fontSizePreference) {
-                        "small" -> 13.sp
-                        "large" -> 18.sp
-                        else -> 15.sp
-                    }
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(8.dp))
-                            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f))
-                            .padding(10.dp)
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
+                        Icon(
+                            imageVector = Icons.Default.SignalWifiOff,
+                            contentDescription = "Offline",
+                            tint = GoldPrimary,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
                         Text(
-                            text = "প্রিভিউ: “শব্দেই বাঁচে কবি, সুন্দরেই রচে কাব্য”",
-                            fontSize = sampleFontSize,
-                            fontStyle = FontStyle.Italic,
-                            color = MaterialTheme.colorScheme.onSurface
+                            text = "১০০% অফলাইন ও সম্পূর্ণ নিরাপদ। আপনার কোনো ডাটা ইন্টারনেটে আপলোড হয় না।",
+                            fontSize = 12.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                 }
             }
 
-            // ================= 3. SECURITY PASSWORD =================
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(16.dp)),
-                shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
-            ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(16.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(
-                            imageVector = Icons.Filled.Security,
-                            contentDescription = "Security",
-                            tint = GoldPrimary,
-                            modifier = Modifier.size(22.dp)
+            // ================= 3. SHARE APP =================
+            Button(
+                onClick = {
+                    val shareIntent = Intent(Intent.ACTION_SEND).apply {
+                        type = "text/plain"
+                        putExtra(
+                            Intent.EXTRA_TEXT,
+                            "‘কাব্যলোকের ব্রহ্মকবি’ — আপনার মনের কবিতা, বাংলা গান ও সাহিত্য নোট লেখার সেরা অফলাইন অ্যাপ।"
                         )
-                        Spacer(modifier = Modifier.width(12.dp))
-                        Column {
-                            Text(
-                                text = "সিকিউরিটি পাসওয়ার্ড (হাইডেন নোটস)",
-                                fontSize = 14.5.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onSurface
-                            )
-                            Text(
-                                text = if (passwordHash.isNullOrEmpty()) "পাসওয়ার্ড সেট করা হয়নি" else "পাসওয়ার্ড সক্রিয় রয়েছে",
-                                fontSize = 12.sp,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
                     }
-
-                    OutlinedButton(
-                        onClick = { showSetPasswordDialog = true },
-                        shape = RoundedCornerShape(10.dp)
-                    ) {
-                        Text(if (passwordHash.isNullOrEmpty()) "সেট করুন" else "পরিবর্তন", color = GoldPrimary)
-                    }
-                }
-            }
-
-            // ================= 4. DARK MODE TOGGLE =================
-            val effectiveDark = isDarkMode ?: true
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(16.dp)),
-                shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
-            ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(16.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(
-                            imageVector = Icons.Filled.DarkMode,
-                            contentDescription = "Dark Mode",
-                            tint = GoldPrimary,
-                            modifier = Modifier.size(22.dp)
-                        )
-                        Spacer(modifier = Modifier.width(12.dp))
-                        Column {
-                            Text(
-                                text = "ডার্ক মোড (Dark Mode)",
-                                fontSize = 14.5.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onSurface
-                            )
-                            Text(
-                                text = if (effectiveDark) "গাঢ় থিম সক্রিয়" else "হালকা থিম সক্রিয়",
-                                fontSize = 12.sp,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                    }
-
-                    Switch(
-                        checked = effectiveDark,
-                        onCheckedChange = { viewModel.toggleDarkMode(it) },
-                        colors = SwitchDefaults.colors(
-                            checkedThumbColor = GoldLight,
-                            checkedTrackColor = GoldDark.copy(alpha = 0.5f)
-                        )
-                    )
-                }
-            }
-
-            // ================= 5. NOTIFICATION TOGGLE =================
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(16.dp)),
-                shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
-            ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(16.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(
-                            imageVector = Icons.Filled.Notifications,
-                            contentDescription = "Notifications",
-                            tint = GoldPrimary,
-                            modifier = Modifier.size(22.dp)
-                        )
-                        Spacer(modifier = Modifier.width(12.dp))
-                        Column {
-                            Text(
-                                text = "নোটিফিকেশন ও রিমাইন্ডার",
-                                fontSize = 14.5.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onSurface
-                            )
-                            Text(
-                                text = if (isNotificationsEnabled) "দৈনিক লেখার নোটিফিকেশন চালু" else "নোটিফিকেশন বন্ধ রয়েছে",
-                                fontSize = 12.sp,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                    }
-
-                    Switch(
-                        checked = isNotificationsEnabled,
-                        onCheckedChange = { enabled ->
-                            viewModel.toggleNotifications(enabled)
-                            Toast.makeText(
-                                context,
-                                if (enabled) "নোটিফিকেশন চালু করা হয়েছে" else "নোটিফিকেশন বন্ধ করা হয়েছে",
-                                Toast.LENGTH_SHORT
-                            ).show()
-                        },
-                        colors = SwitchDefaults.colors(
-                            checkedThumbColor = GoldLight,
-                            checkedTrackColor = GoldDark.copy(alpha = 0.5f)
-                        )
-                    )
-                }
-            }
-
-            // ================= 6. CLEAR CACHE BUTTON =================
-            OutlinedButton(
-                onClick = { showClearCacheDialog = true },
+                    context.startActivity(Intent.createChooser(shareIntent, "অ্যাপ শেয়ার করুন"))
+                },
                 shape = RoundedCornerShape(14.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = GoldPrimary),
                 modifier = Modifier.fillMaxWidth().height(48.dp)
             ) {
                 Icon(
-                    imageVector = Icons.Default.CleaningServices,
-                    contentDescription = "Clear Cache",
-                    tint = MaterialTheme.colorScheme.error,
+                    imageVector = Icons.Default.Share,
+                    contentDescription = "Share",
+                    tint = Color.White,
                     modifier = Modifier.size(20.dp)
                 )
                 Spacer(modifier = Modifier.width(8.dp))
-                Text("ক্যাশ ক্লিয়ার করুন", color = MaterialTheme.colorScheme.error, fontSize = 14.sp)
+                Text("বন্ধুদের সাথে শেয়ার করুন", color = Color.White, fontSize = 14.sp)
             }
         }
     }
+}
 
-    if (showSetPasswordDialog) {
-        SetPasswordDialog(
-            onDismiss = { showSetPasswordDialog = false },
-            onSetPassword = { newPass, q, a ->
-                viewModel.setAppPassword(newPass, q, a)
-                Toast.makeText(context, "পাসওয়ার্ড সেট করা হয়েছে", Toast.LENGTH_SHORT).show()
-                showSetPasswordDialog = false
+@Composable
+private fun ContactCardItem(
+    modifier: Modifier = Modifier,
+    title: String,
+    subtitle: String,
+    badgeText: String,
+    badgeColor: Color,
+    icon: ImageVector? = null,
+    onClick: () -> Unit
+) {
+    Card(
+        modifier = modifier
+            .clip(RoundedCornerShape(14.dp))
+            .clickable { onClick() }
+            .border(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f), RoundedCornerShape(14.dp)),
+        shape = RoundedCornerShape(14.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f))
+    ) {
+        Row(
+            modifier = Modifier.padding(10.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(34.dp)
+                    .clip(CircleShape)
+                    .background(badgeColor.copy(alpha = 0.15f))
+                    .border(1.dp, badgeColor, CircleShape),
+                contentAlignment = Alignment.Center
+            ) {
+                if (icon != null) {
+                    Icon(imageVector = icon, contentDescription = null, tint = badgeColor, modifier = Modifier.size(18.dp))
+                } else {
+                    Text(text = badgeText, fontSize = 11.sp, fontWeight = FontWeight.Bold, color = badgeColor)
+                }
             }
-        )
+
+            Spacer(modifier = Modifier.width(10.dp))
+
+            Column {
+                Text(text = title, fontSize = 13.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
+                Text(text = subtitle, fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        }
     }
+}
 
-    if (showClearCacheDialog) {
-        AlertDialog(
-            onDismissRequest = { showClearCacheDialog = false },
-            title = { Text("ক্যাশ ক্লিয়ার করুন") },
-            text = { Text("অ্যাপের সাময়িক ফাইল ও ক্যাশ মুছে ফেলা হবে। আপনার লিখিত কোনো নোট বা তথ্য ডিলিট হবে না।") },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        try {
-                            context.cacheDir.deleteRecursively()
-                            Toast.makeText(context, "ক্যাশ সফলভাবে ক্লিয়ার করা হয়েছে", Toast.LENGTH_SHORT).show()
-                        } catch (e: Exception) {
-                            Toast.makeText(context, "ক্যাশ ক্লিয়ারে সমস্যা হয়েছে", Toast.LENGTH_SHORT).show()
-                        }
-                        showClearCacheDialog = false
-                    },
-                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
-                ) {
-                    Text("ক্লিয়ার করুন", color = Color.White)
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showClearCacheDialog = false }) {
-                    Text("বাতিল")
-                }
-            }
-        )
+@Composable
+private fun BadgeChipItem(text: String) {
+    Box(
+        modifier = Modifier
+            .clip(RoundedCornerShape(8.dp))
+            .background(GoldPrimary.copy(alpha = 0.15f))
+            .padding(horizontal = 10.dp, vertical = 4.dp)
+    ) {
+        Text(text = text, fontSize = 11.sp, fontWeight = FontWeight.Medium, color = GoldPrimary)
+    }
+}
+
+private fun openUrl(context: Context, url: String) {
+    try {
+        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
+        context.startActivity(intent)
+    } catch (e: Exception) {
+        Toast.makeText(context, "লিঙ্ক খুলতে ব্যর্থ হয়েছে", Toast.LENGTH_SHORT).show()
+    }
+}
+
+private fun openWhatsApp(context: Context, phoneWithCountryCode: String) {
+    try {
+        val url = "https://api.whatsapp.com/send?phone=$phoneWithCountryCode"
+        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
+        context.startActivity(intent)
+    } catch (e: Exception) {
+        Toast.makeText(context, "হোয়াটসঅ্যাপ ইনস্টল করা নেই", Toast.LENGTH_SHORT).show()
+    }
+}
+
+private fun openEmail(context: Context, emailAddress: String, subject: String) {
+    try {
+        val intent = Intent(Intent.ACTION_SENDTO).apply {
+            data = Uri.parse("mailto:$emailAddress")
+            putExtra(Intent.EXTRA_SUBJECT, subject)
+        }
+        context.startActivity(intent)
+    } catch (e: Exception) {
+        Toast.makeText(context, "ইমেইল অ্যাপ খুঁজে পাওয়া যায়নি", Toast.LENGTH_SHORT).show()
     }
 }
