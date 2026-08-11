@@ -55,18 +55,18 @@ class MainActivity : ComponentActivity() {
         BengaliFonts.init(this)
         enableEdgeToEdge()
 
-        setContent {
-            val isDarkModePref by mainViewModel.isDarkMode.collectAsState()
+       setContent {
+    val isDarkModePref by mainViewModel.isDarkMode.collectAsState()
 
-          KabyolokorTheme(
-    darkTheme = isDarkModePref ?: true  // ← 'darkTheme' ব্যবহার করুন
-) {
-    MainAppContent(
-        viewModel = mainViewModel,
-        isDarkMode = isDarkModePref
-    )
+    KabyolokorTheme(
+        darkTheme = isDarkModePref ?: true  // ← সঠিক প্যারামিটার নাম
+    ) {
+        MainAppContent(
+            viewModel = mainViewModel,
+            isDarkMode = isDarkModePref
+        )
+    }
 }
-        }
     }
 }
 
