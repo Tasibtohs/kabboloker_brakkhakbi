@@ -54,6 +54,9 @@ class EditorViewModel(application: Application) : AndroidViewModel(application) 
 
     fun loadNote(noteId: Long?) {
         currentNoteId = if (noteId != null && noteId > 0) noteId else null
+        undoStack.clear()
+        redoStack.clear()
+        updateUndoRedoStates()
         if (currentNoteId != null) {
             viewModelScope.launch {
                 val existing = repository.getNoteByIdSync(currentNoteId!!)
