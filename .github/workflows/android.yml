@@ -73,7 +73,7 @@ jobs:
     - name: Create Release and Upload APK
       uses: ncipollo/release-action@v1
       with:
-        artifacts: "app/build/outputs/apk/release/*.apk"
+        artifacts: "app/build/outputs/apk/Kabboloker Brakkhakbi/*.apk"
         tag: v1.0.${{ github.run_number }}
         name: "Kabboloker Brakkhakbi v1.0.${{ github.run_number }}"
         body: "✅ Release APK - Ready to install"
