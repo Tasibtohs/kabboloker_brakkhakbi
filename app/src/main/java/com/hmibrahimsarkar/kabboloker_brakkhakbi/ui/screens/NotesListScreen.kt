@@ -62,7 +62,13 @@ import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.SelectAll
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Surface
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.outlined.Schedule
+import androidx.compose.material.icons.outlined.History
+import androidx.compose.material.icons.outlined.SortByAlpha
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.FloatingActionButtonDefaults
 import androidx.compose.material3.Icon
@@ -132,6 +138,20 @@ private val SidebarIconVector: ImageVector by lazy {
     ).build()
 }
 
+private val PremiumSortIconVector: ImageVector by lazy {
+    ImageVector.Builder(
+        name = "PremiumSortIcon",
+        defaultWidth = 24.dp,
+        defaultHeight = 24.dp,
+        viewportWidth = 24f,
+        viewportHeight = 24f
+    ).addPath(
+        pathData = addPathNodes("M 3,6 L 15,6 M 3,12 L 11,12 M 3,18 L 8,18 M 18,17 L 18,7 M 15,10 L 18,7 L 21,10"),
+        stroke = SolidColor(AmberAccent),
+        strokeLineWidth = 2.2f
+    ).build()
+}
+
 @Composable
 fun NotesListScreen(
     viewModel: MainViewModel,
@@ -174,31 +194,122 @@ fun NotesListScreen(
                     }
                 },
                 actions = {
-                    val viewIcon = when (currentViewMode) {
-                        "GRID" -> Icons.Outlined.GridView
-                        "LIST" -> Icons.Outlined.ViewList
-                        else -> Icons.Outlined.ViewAgenda
-                    }
-                    val viewDesc = when (currentViewMode) {
-                        "GRID" -> "গ্রিড ভিউ"
-                        "LIST" -> "লিস্ট ভিউ"
-                        else -> "কার্ড ভিউ"
-                    }
-                    IconButton(onClick = {
-                        val nextMode = when (currentViewMode) {
-                            "CARD" -> "GRID"
-                            "GRID" -> "LIST"
-                            "LIST" -> "CARD"
-                            else -> "CARD"
+                    var showSortMenu by remember { mutableStateOf(false) }
+                    val currentSortOrder by viewModel.sortOrderPreference.collectAsState()
+
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(2.dp)
+                    ) {
+                        // Sort Button & Dropdown Menu
+                        Box {
+                            IconButton(onClick = { showSortMenu = true }) {
+                                Icon(
+                                    imageVector = PremiumSortIconVector,
+                                    contentDescription = "সর্ট করুন",
+                                    tint = AmberAccent,
+                                    modifier = Modifier.size(24.dp)
+                                )
+                            }
+
+                            DropdownMenu(
+                                expanded = showSortMenu,
+                                onDismissRequest = { showSortMenu = false },
+                                modifier = Modifier
+                                    .background(MaterialTheme.colorScheme.surface)
+                                    .border(
+                                        width = 1.dp,
+                                        brush = Brush.linearGradient(listOf(GoldLight, GoldPrimary, GoldDark)),
+                                        shape = RoundedCornerShape(16.dp)
+                                    )
+                                    .shadow(12.dp, RoundedCornerShape(16.dp), spotColor = GoldPrimary.copy(alpha = 0.3f)),
+                                shape = RoundedCornerShape(16.dp)
+                            ) {
+                                val options = listOf(
+                                    Triple("NEWEST_FIRST", "নতুন থেকে পুরোনো", Icons.Outlined.Schedule),
+                                    Triple("OLDEST_FIRST", "পুরোনো থেকে নতুন", Icons.Outlined.History),
+                                    Triple("TITLE_ASC", "শিরোনাম অ-য়", Icons.Outlined.SortByAlpha),
+                                    Triple("TITLE_DESC", "শিরোনাম য়-অ", Icons.Outlined.SortByAlpha)
+                                )
+
+                                options.forEach { (key, label, icon) ->
+                                    val isSelected = currentSortOrder == key
+                                    DropdownMenuItem(
+                                        text = {
+                                            Row(
+                                                modifier = Modifier.fillMaxWidth(),
+                                                horizontalArrangement = Arrangement.SpaceBetween,
+                                                verticalAlignment = Alignment.CenterVertically
+                                            ) {
+                                                Row(
+                                                    verticalAlignment = Alignment.CenterVertically,
+                                                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                                                ) {
+                                                    Icon(
+                                                        imageVector = icon,
+                                                        contentDescription = null,
+                                                        tint = if (isSelected) GoldPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
+                                                        modifier = Modifier.size(18.dp)
+                                                    )
+                                                    Text(
+                                                        text = label,
+                                                        fontSize = 13.5.sp,
+                                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                                        color = if (isSelected) GoldPrimary else MaterialTheme.colorScheme.onSurface
+                                                    )
+                                                }
+                                                if (isSelected) {
+                                                    Spacer(modifier = Modifier.width(16.dp))
+                                                    Icon(
+                                                        imageVector = Icons.Default.Check,
+                                                        contentDescription = "Selected",
+                                                        tint = GoldPrimary,
+                                                        modifier = Modifier.size(18.dp)
+                                                    )
+                                                }
+                                            }
+                                        },
+                                        onClick = {
+                                            viewModel.setSortOrder(key)
+                                            showSortMenu = false
+                                        },
+                                        modifier = Modifier
+                                            .padding(horizontal = 6.dp, vertical = 2.dp)
+                                            .clip(RoundedCornerShape(10.dp))
+                                            .background(if (isSelected) GoldPrimary.copy(alpha = 0.12f) else Color.Transparent),
+                                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp)
+                                    )
+                                }
+                            }
                         }
-                        viewModel.setViewMode(nextMode)
-                    }) {
-                        Icon(
-                            imageVector = viewIcon,
-                            contentDescription = viewDesc,
-                            tint = AmberAccent,
-                            modifier = Modifier.size(24.dp)
-                        )
+
+                        // View Mode Toggle Button
+                        val viewIcon = when (currentViewMode) {
+                            "GRID" -> Icons.Outlined.GridView
+                            "LIST" -> Icons.Outlined.ViewList
+                            else -> Icons.Outlined.ViewAgenda
+                        }
+                        val viewDesc = when (currentViewMode) {
+                            "GRID" -> "গ্রিড ভিউ"
+                            "LIST" -> "লিস্ট ভিউ"
+                            else -> "কার্ড ভিউ"
+                        }
+                        IconButton(onClick = {
+                            val nextMode = when (currentViewMode) {
+                                "CARD" -> "GRID"
+                                "GRID" -> "LIST"
+                                "LIST" -> "CARD"
+                                else -> "CARD"
+                            }
+                            viewModel.setViewMode(nextMode)
+                        }) {
+                            Icon(
+                                imageVector = viewIcon,
+                                contentDescription = viewDesc,
+                                tint = AmberAccent,
+                                modifier = Modifier.size(24.dp)
+                            )
+                        }
                     }
                 }
             )
