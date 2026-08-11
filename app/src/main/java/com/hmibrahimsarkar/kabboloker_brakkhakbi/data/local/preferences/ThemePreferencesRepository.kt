@@ -38,6 +38,7 @@ class ThemePreferencesRepository(private val context: Context) {
         val FONT_SIZE_PREFERENCE = stringPreferencesKey("font_size_preference")
         val CUSTOM_THEMES_JSON = stringPreferencesKey("custom_themes_json")
         val VIEW_MODE_PREFERENCE = stringPreferencesKey("view_mode_preference")
+        val SORT_ORDER_PREFERENCE = stringPreferencesKey("sort_order_preference")
     }
 
     val customThemesPayload: Flow<List<CustomThemePayload>> = context.dataStore.data.map { preferences ->
@@ -135,6 +136,10 @@ class ThemePreferencesRepository(private val context: Context) {
         preferences[PreferencesKeys.VIEW_MODE_PREFERENCE] ?: "CARD"
     }
 
+    val sortOrderPreference: Flow<String> = context.dataStore.data.map { preferences ->
+        preferences[PreferencesKeys.SORT_ORDER_PREFERENCE] ?: "NEWEST_FIRST"
+    }
+
     val editorTopBarName: Flow<String> = context.dataStore.data.map { preferences ->
         preferences[PreferencesKeys.EDITOR_TOP_BAR_NAME] ?: "কাব্যলোকের ব্রক্ষকবি"
     }
@@ -168,6 +173,12 @@ class ThemePreferencesRepository(private val context: Context) {
     suspend fun setViewModePreference(mode: String) {
         context.dataStore.edit { preferences ->
             preferences[PreferencesKeys.VIEW_MODE_PREFERENCE] = mode
+        }
+    }
+
+    suspend fun setSortOrderPreference(order: String) {
+        context.dataStore.edit { preferences ->
+            preferences[PreferencesKeys.SORT_ORDER_PREFERENCE] = order
         }
     }
 
