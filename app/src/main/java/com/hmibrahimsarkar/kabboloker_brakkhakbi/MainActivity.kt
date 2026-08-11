@@ -59,11 +59,11 @@ class MainActivity : ComponentActivity() {
             val isDarkModePref by mainViewModel.isDarkMode.collectAsState()
 
            KabyolokorTheme(
-    darkMode = isDarkModePref ?: true
+    isDarkMode = isDarkModePref ?: true
 ) {
     MainAppContent(
         viewModel = mainViewModel,
-        isDarkMode = isDarkModePref ?: true  // Null সেফটি যোগ করুন
+        DarkMode = isDarkModePref ?: true  // Null সেফটি যোগ করুন
     )
 }
         }
