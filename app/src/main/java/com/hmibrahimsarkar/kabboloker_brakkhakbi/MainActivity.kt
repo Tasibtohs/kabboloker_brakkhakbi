@@ -26,12 +26,15 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import com.hmibrahimsarkar.kabboloker_brakkhakbi.ui.components.NavigationDrawerContent
+import com.hmibrahimsarkar.kabboloker_brakkhakbi.ui.screens.AboutScreen
 import com.hmibrahimsarkar.kabboloker_brakkhakbi.ui.screens.BackupRestoreScreen
 import com.hmibrahimsarkar.kabboloker_brakkhakbi.ui.screens.EditorScreen
 import com.hmibrahimsarkar.kabboloker_brakkhakbi.ui.screens.GroupsScreen
 import com.hmibrahimsarkar.kabboloker_brakkhakbi.ui.screens.HiddenNotesScreen
 import com.hmibrahimsarkar.kabboloker_brakkhakbi.ui.screens.NotesListScreen
+import com.hmibrahimsarkar.kabboloker_brakkhakbi.ui.screens.PrivacyPolicyScreen
 import com.hmibrahimsarkar.kabboloker_brakkhakbi.ui.screens.SettingsAboutScreen
+import com.hmibrahimsarkar.kabboloker_brakkhakbi.ui.screens.SettingsScreen
 import com.hmibrahimsarkar.kabboloker_brakkhakbi.ui.screens.SplashScreen
 import com.hmibrahimsarkar.kabboloker_brakkhakbi.ui.screens.TrashScreen
 import com.hmibrahimsarkar.kabboloker_brakkhakbi.ui.theme.KabyolokorTheme
@@ -40,6 +43,8 @@ import com.hmibrahimsarkar.kabboloker_brakkhakbi.ui.viewmodel.Screen
 import kotlinx.coroutines.launch
 
 import com.hmibrahimsarkar.kabboloker_brakkhakbi.ui.font.BengaliFonts
+
+import androidx.compose.material3.ExperimentalMaterial3Api
 
 class MainActivity : ComponentActivity() {
 
@@ -51,29 +56,32 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
 
         setContent {
-            val isDarkPref by mainViewModel.isDarkMode.collectAsState()
-            val systemInDark = isSystemInDarkTheme()
-            val effectiveDark = isDarkPref ?: systemInDark
+            val isDarkModePref by mainViewModel.isDarkMode.collectAsState()
 
-            KabyolokorTheme(darkTheme = effectiveDark) {
+            KabyolokorTheme(
+                isDarkMode = isDarkModePref ?: true
+            ) {
                 MainAppContent(
                     viewModel = mainViewModel,
-                    isDarkMode = effectiveDark
+                    isDarkMode = isDarkModePref
                 )
             }
         }
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MainAppContent(
     viewModel: MainViewModel,
-    isDarkMode: Boolean
+    isDarkMode: Boolean?
 ) {
     val context = androidx.compose.ui.platform.LocalContext.current
     val currentScreen by viewModel.currentScreen.collectAsState()
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     val scope = rememberCoroutineScope()
+
+    val effectiveDark = isDarkMode ?: true
 
     val exportAllPdfLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.CreateDocument("application/pdf")
@@ -105,7 +113,7 @@ fun MainAppContent(
             drawerContent = {
                 NavigationDrawerContent(
                     currentScreen = currentScreen,
-                    isDarkMode = isDarkMode,
+                    isDarkMode = effectiveDark,
                     onNavigate = { targetScreen ->
                         viewModel.navigateTo(targetScreen)
                     },
@@ -199,6 +207,25 @@ fun MainAppContent(
                         SettingsAboutScreen(
                             viewModel = viewModel,
                             onOpenDrawer = { scope.launch { drawerState.open() } },
+                            onBack = { viewModel.navigateTo(Screen.NotesList) }
+                        )
+                    }
+
+                    is Screen.Settings -> {
+                        SettingsScreen(
+                            viewModel = viewModel,
+                            onBack = { viewModel.navigateTo(Screen.NotesList) }
+                        )
+                    }
+
+                    is Screen.About -> {
+                        AboutScreen(
+                            onBack = { viewModel.navigateTo(Screen.NotesList) }
+                        )
+                    }
+
+                    is Screen.PrivacyPolicy -> {
+                        PrivacyPolicyScreen(
                             onBack = { viewModel.navigateTo(Screen.NotesList) }
                         )
                     }
