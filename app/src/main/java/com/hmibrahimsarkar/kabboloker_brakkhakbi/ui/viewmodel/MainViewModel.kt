@@ -21,6 +21,7 @@ import com.hmibrahimsarkar.kabboloker_brakkhakbi.util.PdfExportHelper
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
@@ -63,6 +64,12 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     val isDarkMode: StateFlow<Boolean?> = themePreferences.isDarkMode
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
 
+    fun toggleDarkMode(isDark: Boolean) {
+        viewModelScope.launch {
+            themePreferences.setDarkMode(isDark)
+        }
+    }
+
     // Notification preference
     val isNotificationsEnabled: StateFlow<Boolean> = themePreferences.isNotificationsEnabled
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
@@ -70,6 +77,16 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     // Font size preference
     val fontSizePreference: StateFlow<String> = themePreferences.fontSizePreference
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "medium")
+
+    // View mode preference (LIST, CARD, GRID)
+    val viewModePreference: StateFlow<String> = themePreferences.viewModePreference
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "CARD")
+
+    fun setViewMode(mode: String) {
+        viewModelScope.launch {
+            themePreferences.setViewModePreference(mode)
+        }
+    }
 
     fun toggleNotifications(enabled: Boolean) {
         viewModelScope.launch {
@@ -167,12 +184,6 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     fun setSelectedGroupFilter(groupId: Long?) {
         _selectedGroupId.value = groupId
-    }
-
-    fun toggleDarkMode(isDark: Boolean) {
-        viewModelScope.launch {
-            themePreferences.setDarkMode(isDark)
-        }
     }
 
     fun setPassword(password: String, question: String = "", answer: String = "") {
@@ -338,6 +349,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     nObj.put("id", n.id)
                     nObj.put("title", n.title)
                     nObj.put("content", n.content)
+                    nObj.put("category", n.category)
                     nObj.put("titleColorHex", n.titleColorHex)
                     nObj.put("textColorHex", n.textColorHex)
                     nObj.put("fontFamilyKey", n.fontFamilyKey)
@@ -403,6 +415,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                             id = nObj.optLong("id", 0),
                             title = nObj.optString("title", ""),
                             content = nObj.optString("content", ""),
+                            category = nObj.optString("category", ""),
                             titleColorHex = nObj.optString("titleColorHex", "#D4A017"),
                             textColorHex = nObj.optString("textColorHex", "#1A1A2E"),
                             fontFamilyKey = nObj.optString("fontFamilyKey", "hind_siliguri"),
