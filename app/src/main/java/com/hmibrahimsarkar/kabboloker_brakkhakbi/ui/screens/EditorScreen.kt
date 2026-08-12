@@ -149,8 +149,23 @@ fun EditorScreen(
     val fontSheetState = rememberModalBottomSheetState()
     val colorSheetState = rememberModalBottomSheetState()
 
+    val defaultFontSizeKey by mainViewModel.defaultFontSizeKey.collectAsState()
+    val defaultFontFamilyKey by mainViewModel.defaultFontFamilyKey.collectAsState()
+    val defaultTextAlignKey by mainViewModel.defaultTextAlignKey.collectAsState()
+
+    val defaultFontSizeSp = when (defaultFontSizeKey) {
+        "small" -> 14f
+        "large" -> 22f
+        else -> 18f
+    }
+
     LaunchedEffect(noteId) {
-        editorViewModel.loadNote(noteId)
+        editorViewModel.loadNote(
+            noteId = noteId,
+            defaultFontSizeSp = defaultFontSizeSp,
+            defaultFontFamilyKey = defaultFontFamilyKey,
+            defaultTextAlign = defaultTextAlignKey
+        )
     }
 
     val titleColor = resolveAdaptiveTitleColor(noteState.titleColorHex)
