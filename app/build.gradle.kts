@@ -23,7 +23,7 @@ android {
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
   }
 
-  // 🔥 ভাষা ফিল্টার করার সঠিক উপায়
+  // 🔥 ভাষা ফিল্টার করার সঠিক উপায় (deprecated warning fix)
   androidResources {
     localeFilters.add("bn")
   }
@@ -70,15 +70,17 @@ android {
   }
 }
 
-// 🔥 APK ফাইলের নাম পরিবর্তন - buildTypes-এর বাইরে রাখতে হবে
-android.applicationVariants.all {
-  outputs.all {
-    val output = this as com.android.build.gradle.internal.api.BaseVariantOutputImpl
-    val variantName = name.capitalize()
-    output.outputFileName = if (variantName.contains("Release")) {
-      "কাব্যলোকের ব্রক্ষকবি-${android.defaultConfig.versionName}.apk"
-    } else {
-      "কাব্যলোকের ব্রক্ষকবি-debug.apk"
+// 🔥 APK ফাইলের নাম পরিবর্তন - এখানে সঠিক সিনট্যাক্স
+afterEvaluate {
+  android.applicationVariants.all {
+    outputs.all {
+      val output = this as com.android.build.gradle.internal.api.BaseVariantOutputImpl
+      val variantName = name.capitalize()
+      output.outputFileName = if (variantName.contains("Release")) {
+        "কাব্যলোকের ব্রক্ষকবি-${android.defaultConfig.versionName}.apk"
+      } else {
+        "কাব্যলোকের ব্রক্ষকবি-debug.apk"
+      }
     }
   }
 }
