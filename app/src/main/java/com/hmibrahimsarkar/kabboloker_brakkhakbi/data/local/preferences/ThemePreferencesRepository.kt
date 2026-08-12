@@ -39,6 +39,17 @@ class ThemePreferencesRepository(private val context: Context) {
         val CUSTOM_THEMES_JSON = stringPreferencesKey("custom_themes_json")
         val VIEW_MODE_PREFERENCE = stringPreferencesKey("view_mode_preference")
         val SORT_ORDER_PREFERENCE = stringPreferencesKey("sort_order_preference")
+
+        // Writing Settings
+        val DEFAULT_FONT_SIZE_KEY = stringPreferencesKey("default_font_size_key")
+        val DEFAULT_FONT_FAMILY_KEY = stringPreferencesKey("default_font_family_key")
+        val DEFAULT_TEXT_ALIGN_KEY = stringPreferencesKey("default_text_align_key")
+
+        // Reminder Settings
+        val IS_REMINDER_MASTER_ENABLED = booleanPreferencesKey("is_reminder_master_enabled")
+        val IS_DAILY_REMINDER_ENABLED = booleanPreferencesKey("is_daily_reminder_enabled")
+        val REMINDER_HOUR = stringPreferencesKey("reminder_hour")
+        val REMINDER_MINUTE = stringPreferencesKey("reminder_minute")
     }
 
     val customThemesPayload: Flow<List<CustomThemePayload>> = context.dataStore.data.map { preferences ->
@@ -140,6 +151,36 @@ class ThemePreferencesRepository(private val context: Context) {
         preferences[PreferencesKeys.SORT_ORDER_PREFERENCE] ?: "NEWEST_FIRST"
     }
 
+    // Default Writing Settings Flows
+    val defaultFontSizeKey: Flow<String> = context.dataStore.data.map { preferences ->
+        preferences[PreferencesKeys.DEFAULT_FONT_SIZE_KEY] ?: "medium"
+    }
+
+    val defaultFontFamilyKey: Flow<String> = context.dataStore.data.map { preferences ->
+        preferences[PreferencesKeys.DEFAULT_FONT_FAMILY_KEY] ?: "anupam_mahdi"
+    }
+
+    val defaultTextAlignKey: Flow<String> = context.dataStore.data.map { preferences ->
+        preferences[PreferencesKeys.DEFAULT_TEXT_ALIGN_KEY] ?: "LEFT"
+    }
+
+    // Reminder Flows
+    val isReminderMasterEnabled: Flow<Boolean> = context.dataStore.data.map { preferences ->
+        preferences[PreferencesKeys.IS_REMINDER_MASTER_ENABLED] ?: true
+    }
+
+    val isDailyReminderEnabled: Flow<Boolean> = context.dataStore.data.map { preferences ->
+        preferences[PreferencesKeys.IS_DAILY_REMINDER_ENABLED] ?: true
+    }
+
+    val reminderHour: Flow<Int> = context.dataStore.data.map { preferences ->
+        preferences[PreferencesKeys.REMINDER_HOUR]?.toIntOrNull() ?: 20
+    }
+
+    val reminderMinute: Flow<Int> = context.dataStore.data.map { preferences ->
+        preferences[PreferencesKeys.REMINDER_MINUTE]?.toIntOrNull() ?: 0
+    }
+
     val editorTopBarName: Flow<String> = context.dataStore.data.map { preferences ->
         preferences[PreferencesKeys.EDITOR_TOP_BAR_NAME] ?: "কাব্যলোকের ব্রক্ষকবি"
     }
@@ -179,6 +220,43 @@ class ThemePreferencesRepository(private val context: Context) {
     suspend fun setSortOrderPreference(order: String) {
         context.dataStore.edit { preferences ->
             preferences[PreferencesKeys.SORT_ORDER_PREFERENCE] = order
+        }
+    }
+
+    suspend fun setDefaultFontSizeKey(key: String) {
+        context.dataStore.edit { preferences ->
+            preferences[PreferencesKeys.DEFAULT_FONT_SIZE_KEY] = key
+        }
+    }
+
+    suspend fun setDefaultFontFamilyKey(key: String) {
+        context.dataStore.edit { preferences ->
+            preferences[PreferencesKeys.DEFAULT_FONT_FAMILY_KEY] = key
+        }
+    }
+
+    suspend fun setDefaultTextAlignKey(align: String) {
+        context.dataStore.edit { preferences ->
+            preferences[PreferencesKeys.DEFAULT_TEXT_ALIGN_KEY] = align
+        }
+    }
+
+    suspend fun setReminderMasterEnabled(enabled: Boolean) {
+        context.dataStore.edit { preferences ->
+            preferences[PreferencesKeys.IS_REMINDER_MASTER_ENABLED] = enabled
+        }
+    }
+
+    suspend fun setDailyReminderEnabled(enabled: Boolean) {
+        context.dataStore.edit { preferences ->
+            preferences[PreferencesKeys.IS_DAILY_REMINDER_ENABLED] = enabled
+        }
+    }
+
+    suspend fun setReminderTime(hour: Int, minute: Int) {
+        context.dataStore.edit { preferences ->
+            preferences[PreferencesKeys.REMINDER_HOUR] = hour.toString()
+            preferences[PreferencesKeys.REMINDER_MINUTE] = minute.toString()
         }
     }
 
