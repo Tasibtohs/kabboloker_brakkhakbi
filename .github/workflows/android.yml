@@ -58,25 +58,45 @@ jobs:
         STORE_PASSWORD: ${{ secrets.STORE_PASSWORD }}
         KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
 
+    - name: List APK files (Debug)
+      run: ls -la app/build/outputs/apk/debug/ || echo "No debug APK found"
+
+    - name: List APK files (Release)
+      run: ls -la app/build/outputs/apk/release/ || echo "No release APK found"
+
     - name: Upload Debug APK
       uses: actions/upload-artifact@v4
       with:
         name: Kabboloker-Brakkhakbi-Debug
         path: app/build/outputs/apk/debug/*.apk
+        if-no-files-found: warn
 
     - name: Upload Release APK
       uses: actions/upload-artifact@v4
       with:
         name: Kabboloker-Brakkhakbi-Release
         path: app/build/outputs/apk/release/*.apk
+        if-no-files-found: error
 
     - name: Create Release and Upload APK
       uses: ncipollo/release-action@v1
       with:
-        artifacts: "app/build/outputs/apk/Kabboloker Brakkhakbi/*.apk"
+        # 🔥 সঠিক পাথ - ফোল্ডার ছাড়া সরাসরি APK ফাইল
+        artifacts: "app/build/outputs/apk/release/*.apk"
         tag: v1.0.${{ github.run_number }}
         name: "Kabboloker Brakkhakbi v1.0.${{ github.run_number }}"
-        body: "✅ Release APK - Ready to install"
+        body: |
+          ✅ Release APK - Ready to install
+          
+          ## 📦 What's included
+          - Latest features and bug fixes
+          - Bengali font support
+          - Dark/Light theme
+          
+          ## 📥 Installation
+          1. Download the APK file
+          2. Enable "Install from unknown sources" in your device settings
+          3. Install the APK
         draft: false
         prerelease: true
         token: ${{ secrets.GITHUB_TOKEN }}
