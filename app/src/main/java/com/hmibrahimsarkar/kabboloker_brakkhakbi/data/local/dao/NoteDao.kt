@@ -42,6 +42,9 @@ interface NoteDao {
     @Query("SELECT COUNT(*) FROM notes WHERE isTrashed = 0 AND isHidden = 0")
     fun getActiveNoteCount(): Flow<Int>
 
+    @Query("SELECT COUNT(*) FROM notes WHERE updatedAt >= :startOfDayTimestamp AND isTrashed = 0")
+    suspend fun countNotesUpdatedSince(startOfDayTimestamp: Long): Int
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertNote(note: NoteEntity): Long
 
