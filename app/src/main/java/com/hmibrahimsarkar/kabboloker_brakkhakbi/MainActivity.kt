@@ -55,6 +55,8 @@ class MainActivity : ComponentActivity() {
         BengaliFonts.init(this)
         enableEdgeToEdge()
 
+        handleNotificationIntent(intent)
+
         setContent {
             val isDarkModePref by mainViewModel.isDarkMode.collectAsState()
 
@@ -66,6 +68,18 @@ class MainActivity : ComponentActivity() {
                     isDarkMode = isDarkModePref
                 )
             }
+        }
+    }
+
+    override fun onNewIntent(intent: android.content.Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        handleNotificationIntent(intent)
+    }
+
+    private fun handleNotificationIntent(intent: android.content.Intent?) {
+        if (intent?.getBooleanExtra("OPEN_NEW_NOTE", false) == true) {
+            mainViewModel.navigateTo(com.hmibrahimsarkar.kabboloker_brakkhakbi.ui.viewmodel.Screen.Editor(null))
         }
     }
 }
