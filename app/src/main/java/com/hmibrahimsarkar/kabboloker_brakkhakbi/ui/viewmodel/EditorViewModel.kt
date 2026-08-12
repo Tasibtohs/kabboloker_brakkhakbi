@@ -52,7 +52,12 @@ class EditorViewModel(application: Application) : AndroidViewModel(application) 
 
     private var autoSaveJob: Job? = null
 
-    fun loadNote(noteId: Long?) {
+    fun loadNote(
+        noteId: Long?,
+        defaultFontSizeSp: Float = 18f,
+        defaultFontFamilyKey: String = "anupam_mahdi",
+        defaultTextAlign: String = "LEFT"
+    ) {
         currentNoteId = if (noteId != null && noteId > 0) noteId else null
         undoStack.clear()
         redoStack.clear()
@@ -66,7 +71,11 @@ class EditorViewModel(application: Application) : AndroidViewModel(application) 
                 }
             }
         } else {
-            _noteState.value = NoteEntity()
+            _noteState.value = NoteEntity(
+                fontSizeSp = defaultFontSizeSp,
+                fontFamilyKey = defaultFontFamilyKey,
+                textAlign = defaultTextAlign
+            )
             _isSaved.value = true
         }
     }
