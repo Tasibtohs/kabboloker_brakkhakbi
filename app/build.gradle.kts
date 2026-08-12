@@ -21,9 +21,11 @@ android {
     versionName = "1.0"
 
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
-    
-    // অ্যাপের নাম সেট করুন (strings.xml-এ ওভাররাইড হবে)
-    resourceConfigurations.add("bn") // শুধু বাংলা রিসোর্স রাখতে চাইলে
+  }
+
+  // 🔥 ভাষা ফিল্টার করার সঠিক উপায়
+  androidResources {
+    localeFilters.add("bn")
   }
 
   signingConfigs {
@@ -47,25 +49,9 @@ android {
       isMinifyEnabled = false
       proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
       signingConfig = signingConfigs.getByName("release")
-      
-      // 🔥 APK ফাইলের নাম কাস্টমাইজ করুন - Release
-      applicationVariants.all {
-        outputs.all {
-          val output = this as com.android.build.gradle.internal.api.BaseVariantOutputImpl
-          output.outputFileName = "kabboloker_brakkhakbi-${defaultConfig.versionName}.apk"
-        }
-      }
     }
     debug { 
       signingConfig = signingConfigs.getByName("debugConfig")
-      
-      // 🔥 APK ফাইলের নাম কাস্টমাইজ করুন - Debug
-      applicationVariants.all {
-        outputs.all {
-          val output = this as com.android.build.gradle.internal.api.BaseVariantOutputImpl
-          output.outputFileName = "kabboloker_brakkhakbi-debug.apk"
-        }
-      }
     }
   }
   
@@ -81,6 +67,19 @@ android {
   
   testOptions { 
     unitTests { isIncludeAndroidResources = true } 
+  }
+}
+
+// 🔥 APK ফাইলের নাম পরিবর্তন - buildTypes-এর বাইরে রাখতে হবে
+android.applicationVariants.all {
+  outputs.all {
+    val output = this as com.android.build.gradle.internal.api.BaseVariantOutputImpl
+    val variantName = name.capitalize()
+    output.outputFileName = if (variantName.contains("Release")) {
+      "কাব্যলোকের ব্রক্ষকবি-${android.defaultConfig.versionName}.apk"
+    } else {
+      "কাব্যলোকের ব্রক্ষকবি-debug.apk"
+    }
   }
 }
 
