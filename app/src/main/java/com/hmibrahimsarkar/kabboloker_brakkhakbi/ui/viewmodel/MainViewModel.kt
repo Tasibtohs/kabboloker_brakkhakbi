@@ -113,6 +113,84 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    // Default Writing Settings
+    val defaultFontSizeKey: StateFlow<String> = themePreferences.defaultFontSizeKey
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "medium")
+
+    val defaultFontFamilyKey: StateFlow<String> = themePreferences.defaultFontFamilyKey
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "anupam_mahdi")
+
+    val defaultTextAlignKey: StateFlow<String> = themePreferences.defaultTextAlignKey
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "LEFT")
+
+    fun setDefaultFontSizeKey(key: String) {
+        viewModelScope.launch {
+            themePreferences.setDefaultFontSizeKey(key)
+        }
+    }
+
+    fun setDefaultFontFamilyKey(key: String) {
+        viewModelScope.launch {
+            themePreferences.setDefaultFontFamilyKey(key)
+        }
+    }
+
+    fun setDefaultTextAlignKey(align: String) {
+        viewModelScope.launch {
+            themePreferences.setDefaultTextAlignKey(align)
+        }
+    }
+
+    // Reminder Settings
+    val isReminderMasterEnabled: StateFlow<Boolean> = themePreferences.isReminderMasterEnabled
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
+
+    val isDailyReminderEnabled: StateFlow<Boolean> = themePreferences.isDailyReminderEnabled
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
+
+    val reminderHour: StateFlow<Int> = themePreferences.reminderHour
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 20)
+
+    val reminderMinute: StateFlow<Int> = themePreferences.reminderMinute
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0)
+
+    fun setReminderMasterEnabled(context: Context, enabled: Boolean) {
+        viewModelScope.launch {
+            themePreferences.setReminderMasterEnabled(enabled)
+            if (enabled && isDailyReminderEnabled.value) {
+                com.hmibrahimsarkar.kabboloker_brakkhakbi.receiver.DailyReminderManager.scheduleDailyReminder(
+                    context, reminderHour.value, reminderMinute.value
+                )
+            } else {
+                com.hmibrahimsarkar.kabboloker_brakkhakbi.receiver.DailyReminderManager.cancelDailyReminder(context)
+            }
+        }
+    }
+
+    fun setDailyReminderEnabled(context: Context, enabled: Boolean) {
+        viewModelScope.launch {
+            themePreferences.setDailyReminderEnabled(enabled)
+            if (enabled && isReminderMasterEnabled.value) {
+                com.hmibrahimsarkar.kabboloker_brakkhakbi.receiver.DailyReminderManager.scheduleDailyReminder(
+                    context, reminderHour.value, reminderMinute.value
+                )
+            } else {
+                com.hmibrahimsarkar.kabboloker_brakkhakbi.receiver.DailyReminderManager.cancelDailyReminder(context)
+            }
+        }
+    }
+
+    fun setReminderTime(context: Context, hour: Int, minute: Int) {
+        viewModelScope.launch {
+            themePreferences.setReminderTime(hour, minute)
+            if (isReminderMasterEnabled.value && isDailyReminderEnabled.value) {
+                com.hmibrahimsarkar.kabboloker_brakkhakbi.receiver.DailyReminderManager.scheduleDailyReminder(
+                    context, hour, minute
+                )
+            }
+        }
+    }
+
     fun clearAppCache(context: Context) {
         try {
             context.cacheDir.deleteRecursively()
@@ -390,6 +468,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     nObj.put("id", n.id)
                     nObj.put("title", n.title)
                     nObj.put("content", n.content)
+                    nObj.put("category", n.category)
                     nObj.put("titleColorHex", n.titleColorHex)
                     nObj.put("textColorHex", n.textColorHex)
                     nObj.put("fontFamilyKey", n.fontFamilyKey)
@@ -455,6 +534,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                             id = nObj.optLong("id", 0),
                             title = nObj.optString("title", ""),
                             content = nObj.optString("content", ""),
+                            category = nObj.optString("category", ""),
                             titleColorHex = nObj.optString("titleColorHex", "#D4A017"),
                             textColorHex = nObj.optString("textColorHex", "#1A1A2E"),
                             fontFamilyKey = nObj.optString("fontFamilyKey", "hind_siliguri"),
