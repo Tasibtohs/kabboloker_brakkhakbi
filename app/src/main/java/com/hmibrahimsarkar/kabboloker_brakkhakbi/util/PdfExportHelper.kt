@@ -137,8 +137,12 @@ object PdfExportHelper {
     /**
      * Builds HTML template styled like a real published book or poetry collection.
      */
-    fun buildHtmlForNotes(notes: List<NoteEntity>, isSingleNote: Boolean): String {
-        Log.d(TAG, "Building HTML for notes. Count: ${notes.size}, isSingleNote: $isSingleNote")
+    fun buildHtmlForNotes(
+        notes: List<NoteEntity>,
+        isSingleNote: Boolean,
+        authorName: String = "এইচ. এম. ইব্রাহীম ত্বহা সরকার - কাব্যলোকের ব্রক্ষকবি"
+    ): String {
+        Log.d(TAG, "Building HTML for notes. Count: ${notes.size}, isSingleNote: $isSingleNote, author: $authorName")
         val exportDate = SimpleDateFormat("dd MMMM, yyyy", Locale("bn", "BD")).format(Date())
         
         // CSS @font-face definitions for all 20 local Bengali fonts from assets
@@ -259,6 +263,26 @@ object PdfExportHelper {
 
                 val isPageBreakNeeded = !(isSingleNote && index == 0)
 
+                val formattedAuthorText = when {
+                    authorName.isBlank() -> ""
+                    authorName.contains("কাব্যলোকের") -> "— লেখক: $authorName"
+                    else -> "— লেখক: $authorName – কাব্যলোকের ব্রহ্মকবি"
+                }
+
+                val authorSignatureHtml = if (formattedAuthorText.isNotBlank()) {
+                    val dividerMargin = when (alignment) {
+                        "center" -> "margin: 0 auto 8px auto;"
+                        "right" -> "margin: 0 0 8px auto;"
+                        else -> "margin: 0 auto 8px 0;"
+                    }
+                    """
+                    <div class="poem-author-section" style="text-align: $alignment;">
+                        <div class="author-divider-line" style="$dividerMargin"></div>
+                        <div class="author-signature-text" style="font-family: $fontCssFamily; text-align: $alignment;">${escapeHtml(formattedAuthorText)}</div>
+                    </div>
+                    """.trimIndent()
+                } else ""
+
                 """
                 <div class="note-page ${if (isPageBreakNeeded) "page-break" else ""}">
                     <div class="page-top-ornament">
@@ -290,6 +314,8 @@ object PdfExportHelper {
                         line-height: $lineHeightRatio;
                         font-family: $fontCssFamily;
                     ">$safeContent</div>
+
+                    $authorSignatureHtml
 
                     <div class="page-bottom-footer">
                         <div class="footer-divider"></div>
@@ -614,7 +640,32 @@ object PdfExportHelper {
                     word-wrap: break-word;
                     overflow-wrap: break-word;
                     word-break: normal;
-                    padding-bottom: 40px;
+                    padding-bottom: 10px;
+                }
+                .poem-author-section {
+                    width: 100%;
+                    margin-top: 18px;
+                    margin-bottom: 35px;
+                    box-sizing: border-box;
+                    page-break-inside: avoid !important;
+                    break-inside: avoid !important;
+                }
+                .author-divider-line {
+                    height: 1px;
+                    width: 25%;
+                    max-width: 160px;
+                    min-width: 80px;
+                    background-color: #D4A017;
+                    opacity: 0.45;
+                }
+                .author-signature-text {
+                    font-size: 11pt;
+                    font-style: italic;
+                    font-weight: 500;
+                    color: #6C6C7E;
+                    line-height: 1.45;
+                    word-wrap: break-word;
+                    overflow-wrap: break-word;
                 }
                 .page-bottom-footer {
                     position: absolute;
