@@ -331,7 +331,8 @@ fun EditorScreen(
                                     val shareIntent = Intent(Intent.ACTION_SEND).apply {
                                         type = "text/plain"
                                         putExtra(Intent.EXTRA_SUBJECT, noteState.title)
-                                        putExtra(Intent.EXTRA_TEXT, "${noteState.title}\n\n${noteState.content}\n\n— কাব্যলোকের ব্রক্ষকবি")
+                                        val authorSignature = editorTopBarName.ifBlank { "কাব্যলোকের ব্রক্ষকবি" }
+                                        putExtra(Intent.EXTRA_TEXT, "${noteState.title}\n\n${noteState.content}\n\n— $authorSignature")
                                     }
                                     context.startActivity(Intent.createChooser(shareIntent, "শেয়ার করুন"))
                                 }
@@ -642,7 +643,7 @@ fun EditorScreen(
                 )
 
                 // Poet/Author footer line
-                val authorDisplayName = editorTopBarName.ifBlank { "এইচ.এম. ইব্রাহীম ত্বহা সরকার – কাব্যলোকের ব্রক্ষকবি" }
+                val authorDisplayName = "এইচ. এম. ইব্রাহীম ত্বহা সরকার - কাব্যলোকের ব্রক্ষকবি"
                 Spacer(modifier = Modifier.height(28.dp))
                 HorizontalDivider(
                     color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f),
@@ -652,7 +653,7 @@ fun EditorScreen(
                 )
                 Spacer(modifier = Modifier.height(10.dp))
                 Text(
-                    text = "— লেখক : $authorDisplayName",
+                    text = "— লেখক: $authorDisplayName",
                     fontSize = 13.sp,
                     fontStyle = FontStyle.Italic,
                     fontWeight = FontWeight.Medium,
