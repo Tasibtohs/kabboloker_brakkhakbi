@@ -2,6 +2,7 @@ package com.hmibrahimsarkar.kabboloker_brakkhakbi.ui.screens
 
 import android.content.Context
 import android.content.Intent
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
@@ -49,6 +50,7 @@ import androidx.compose.material.icons.filled.PushPin
 import androidx.compose.material.icons.filled.Save
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material.icons.outlined.Lock
 import androidx.compose.material.icons.outlined.PushPin
 import androidx.compose.material.icons.outlined.TextFields
@@ -196,6 +198,10 @@ fun EditorScreen(
                 scrollState.animateScrollTo(scrollState.maxValue)
             }
         }
+    }
+
+    BackHandler(enabled = isReadingMode) {
+        isReadingMode = false
     }
 
     Scaffold(
@@ -391,43 +397,49 @@ fun EditorScreen(
                         }
                     }
                 )
-            }
-        },
-        floatingActionButton = {
-            if (isReadingMode) {
-                FloatingActionButton(
-                    onClick = { isReadingMode = false },
-                    shape = RoundedCornerShape(50),
-                    containerColor = GoldPrimary,
-                    contentColor = Color.White,
-                    elevation = FloatingActionButtonDefaults.elevation(defaultElevation = 8.dp),
-                    modifier = Modifier
-                        .shadow(
-                            elevation = 12.dp,
-                            shape = RoundedCornerShape(50),
-                            spotColor = GoldGlow,
-                            ambientColor = GoldLight
-                        )
-                ) {
-                    Row(
-                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(6.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Filled.Close,
-                            contentDescription = "Exit Reading Mode",
-                            modifier = Modifier.size(20.dp)
-                        )
-                        Text(
-                            text = "পঠন মোড বন্ধ করুন",
-                            fontSize = 13.sp,
-                            fontWeight = FontWeight.Bold
-                        )
+            } else {
+                // Reading Mode AppTopBar
+                AppTopBar(
+                    title = editorTopBarName.ifBlank { "কাব্যলোকের ব্রক্ষকবি" },
+                    subtitle = "📖 পঠন এলাকা",
+                    navigationIcon = {
+                        IconButton(onClick = { isReadingMode = false }) {
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                                contentDescription = "Exit Reading Mode",
+                                tint = GoldPrimary,
+                                modifier = Modifier.size(26.dp)
+                            )
+                        }
+                    },
+                    actions = {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(50))
+                                .border(1.dp, GoldPrimary.copy(alpha = 0.5f), RoundedCornerShape(50))
+                                .clickable { isReadingMode = false }
+                                .padding(horizontal = 12.dp, vertical = 6.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Outlined.Edit,
+                                contentDescription = "সম্পাদনা করুন",
+                                tint = GoldPrimary,
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = "সম্পাদনা",
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = GoldPrimary
+                            )
+                        }
                     }
-                }
+                )
             }
         },
+        floatingActionButton = {},
         bottomBar = {
             if (!isReadingMode && !noteState.isLocked) {
                 // Pill Shape Bottom Formatting Bar
@@ -506,7 +518,7 @@ fun EditorScreen(
                             )
                         }
 
-                        // Save
+                        // Save (Checkmark)
                         IconButton(
                             onClick = {
                                 scope.launch {
@@ -516,9 +528,9 @@ fun EditorScreen(
                             modifier = Modifier.size(36.dp)
                         ) {
                             Icon(
-                                imageVector = if (isSaved) Icons.Filled.Check else Icons.Filled.Save,
+                                imageVector = Icons.Filled.Check,
                                 contentDescription = "Save Note",
-                                tint = if (isSaved) AmberAccent else GoldPrimary
+                                tint = GoldPrimary
                             )
                         }
                     }
@@ -532,26 +544,24 @@ fun EditorScreen(
                 .padding(paddingValues)
                 .background(MaterialTheme.colorScheme.background)
         ) {
-            if (!isReadingMode) {
-                // Date Row: thin row below top bar with light gray bg & subtle border, centered Bengali date-time
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f))
-                        .border(
-                            width = 1.dp,
-                            color = MaterialTheme.colorScheme.outlineVariant
-                        )
-                        .padding(horizontal = 16.dp, vertical = 6.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        text = getBengaliFullDateTime(noteState.updatedAt),
-                        fontSize = 12.sp,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.85f),
-                        textAlign = TextAlign.Center
+            // Date Row: thin row below top bar with light gray bg & subtle border, centered Bengali date-time
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f))
+                    .border(
+                        width = 1.dp,
+                        color = MaterialTheme.colorScheme.outlineVariant
                     )
-                }
+                    .padding(horizontal = 16.dp, vertical = 6.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = getBengaliFullDateTime(noteState.updatedAt),
+                    fontSize = 12.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.85f),
+                    textAlign = TextAlign.Center
+                )
             }
 
             // Content Area with generous left-right padding (18.dp)
@@ -559,15 +569,21 @@ fun EditorScreen(
                 modifier = Modifier
                     .fillMaxSize()
                     .verticalScroll(scrollState)
-                    .padding(horizontal = 18.dp, vertical = 12.dp)
+                    .padding(horizontal = 18.dp, vertical = 14.dp)
             ) {
+                val titleFontSize = if (isReadingMode) 24.sp else 22.sp
+                val readingFontSizeSp = maxOf(20f, noteState.fontSizeSp + 2f)
+                val effectiveFontSizeSp = if (isReadingMode) readingFontSizeSp else noteState.fontSizeSp
+                val effectiveLineMultiplier = if (isReadingMode) maxOf(noteState.lineSpacingMultiplier * 1.4f, 1.8f) else (noteState.lineSpacingMultiplier * 1.3f)
+                val effectiveLineHeightSp = (effectiveFontSizeSp * effectiveLineMultiplier).sp
+
                 // Title Field: plain text field, medium-large font size, light gray placeholder "শিরোনাম...", no border/underline
                 BasicTextField(
                     value = noteState.title,
                     onValueChange = { editorViewModel.updateTitle(it) },
                     readOnly = isReadingMode || noteState.isLocked,
                     textStyle = TextStyle(
-                        fontSize = 22.sp,
+                        fontSize = titleFontSize,
                         fontWeight = FontWeight.Bold,
                         fontFamily = selectedFontOption.fontFamily,
                         color = titleColor,
@@ -579,10 +595,10 @@ fun EditorScreen(
                         if (noteState.title.isEmpty()) {
                             Text(
                                 text = "শিরোনাম...",
-                                fontSize = 22.sp,
+                                fontSize = titleFontSize,
                                 fontWeight = FontWeight.Bold,
                                 fontFamily = selectedFontOption.fontFamily,
-                                color = MaterialTheme.colorScheme.outline.copy(alpha = 0.5f),
+                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.65f),
                                 textAlign = alignValue
                             )
                         }
@@ -598,14 +614,14 @@ fun EditorScreen(
                     onValueChange = { editorViewModel.updateContent(it) },
                     readOnly = isReadingMode || noteState.isLocked,
                     textStyle = TextStyle(
-                        fontSize = noteState.fontSizeSp.sp,
+                        fontSize = effectiveFontSizeSp.sp,
                         fontWeight = if (noteState.isBold) FontWeight.Bold else FontWeight.Normal,
                         fontStyle = if (noteState.isItalic) FontStyle.Italic else FontStyle.Normal,
                         textDecoration = textDecorationValue,
                         fontFamily = selectedFontOption.fontFamily,
                         color = textColor,
                         textAlign = alignValue,
-                        lineHeight = (noteState.fontSizeSp * noteState.lineSpacingMultiplier * 1.3f).sp
+                        lineHeight = effectiveLineHeightSp
                     ),
                     cursorBrush = SolidColor(AmberAccent),
                     modifier = Modifier
@@ -617,7 +633,7 @@ fun EditorScreen(
                                 text = "আপনার কবিতা বা লেখা লিখুন...",
                                 fontSize = 15.sp,
                                 fontFamily = selectedFontOption.fontFamily,
-                                color = MaterialTheme.colorScheme.outline.copy(alpha = 0.5f),
+                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.65f),
                                 textAlign = alignValue
                             )
                         }
@@ -625,7 +641,28 @@ fun EditorScreen(
                     }
                 )
 
-                Spacer(modifier = Modifier.height(200.dp))
+                // Poet/Author footer line
+                val authorDisplayName = editorTopBarName.ifBlank { "কাব্যলোকের ব্রক্ষকবি" }
+                Spacer(modifier = Modifier.height(28.dp))
+                HorizontalDivider(
+                    color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f),
+                    modifier = Modifier
+                        .fillMaxWidth(0.25f)
+                        .align(if (alignValue == TextAlign.Center) Alignment.CenterHorizontally else if (alignValue == TextAlign.Right) Alignment.End else Alignment.Start)
+                )
+                Spacer(modifier = Modifier.height(10.dp))
+                Text(
+                    text = "— লেখক: $authorDisplayName",
+                    fontSize = 13.sp,
+                    fontStyle = FontStyle.Italic,
+                    fontWeight = FontWeight.Medium,
+                    fontFamily = selectedFontOption.fontFamily,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.75f),
+                    textAlign = alignValue,
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                Spacer(modifier = Modifier.height(180.dp))
             }
         }
     }
