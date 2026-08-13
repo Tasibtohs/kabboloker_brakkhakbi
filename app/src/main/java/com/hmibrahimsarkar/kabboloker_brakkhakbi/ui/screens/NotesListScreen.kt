@@ -28,6 +28,9 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.wrapContentSize
+import androidx.compose.ui.unit.DpOffset
+import androidx.compose.ui.window.PopupProperties
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
@@ -202,7 +205,7 @@ fun NotesListScreen(
                         horizontalArrangement = Arrangement.spacedBy(2.dp)
                     ) {
                         // Sort Button & Dropdown Menu
-                        Box {
+                        Box(modifier = Modifier.wrapContentSize(Alignment.TopEnd)) {
                             IconButton(onClick = { showSortMenu = true }) {
                                 Icon(
                                     imageVector = PremiumSortIconVector,
@@ -215,21 +218,24 @@ fun NotesListScreen(
                             DropdownMenu(
                                 expanded = showSortMenu,
                                 onDismissRequest = { showSortMenu = false },
+                                offset = DpOffset(x = 0.dp, y = 6.dp),
+                                properties = PopupProperties(focusable = true),
                                 modifier = Modifier
-                                    .background(MaterialTheme.colorScheme.surface)
+                                    .width(220.dp)
+                                    .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.98f))
                                     .border(
                                         width = 1.dp,
                                         brush = Brush.linearGradient(listOf(GoldLight, GoldPrimary, GoldDark)),
-                                        shape = RoundedCornerShape(16.dp)
+                                        shape = RoundedCornerShape(18.dp)
                                     )
-                                    .shadow(12.dp, RoundedCornerShape(16.dp), spotColor = GoldPrimary.copy(alpha = 0.3f)),
-                                shape = RoundedCornerShape(16.dp)
+                                    .shadow(16.dp, RoundedCornerShape(18.dp), spotColor = GoldPrimary.copy(alpha = 0.35f)),
+                                shape = RoundedCornerShape(18.dp)
                             ) {
                                 val options = listOf(
                                     Triple("NEWEST_FIRST", "নতুন থেকে পুরোনো", Icons.Outlined.Schedule),
                                     Triple("OLDEST_FIRST", "পুরোনো থেকে নতুন", Icons.Outlined.History),
-                                    Triple("TITLE_ASC", "শিরোনাম অ-য়", Icons.Outlined.SortByAlpha),
-                                    Triple("TITLE_DESC", "শিরোনাম য়-অ", Icons.Outlined.SortByAlpha)
+                                    Triple("TITLE_ASC", "শিরোনাম অ–য়", Icons.Outlined.SortByAlpha),
+                                    Triple("TITLE_DESC", "শিরোনাম য়–অ", Icons.Outlined.SortByAlpha)
                                 )
 
                                 options.forEach { (key, label, icon) ->
@@ -259,7 +265,7 @@ fun NotesListScreen(
                                                     )
                                                 }
                                                 if (isSelected) {
-                                                    Spacer(modifier = Modifier.width(16.dp))
+                                                    Spacer(modifier = Modifier.width(8.dp))
                                                     Icon(
                                                         imageVector = Icons.Default.Check,
                                                         contentDescription = "Selected",
@@ -274,10 +280,11 @@ fun NotesListScreen(
                                             showSortMenu = false
                                         },
                                         modifier = Modifier
+                                            .fillMaxWidth()
                                             .padding(horizontal = 6.dp, vertical = 2.dp)
-                                            .clip(RoundedCornerShape(10.dp))
-                                            .background(if (isSelected) GoldPrimary.copy(alpha = 0.12f) else Color.Transparent),
-                                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp)
+                                            .clip(RoundedCornerShape(12.dp))
+                                            .background(if (isSelected) GoldPrimary.copy(alpha = 0.15f) else Color.Transparent),
+                                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 10.dp)
                                     )
                                 }
                             }
