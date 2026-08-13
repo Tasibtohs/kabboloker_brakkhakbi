@@ -579,7 +579,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun exportNoteToPdfToUri(context: Context, note: NoteEntity, targetUri: Uri) {
         viewModelScope.launch {
             try {
-                val htmlContent = PdfExportHelper.buildHtmlForNotes(listOf(note), isSingleNote = true)
+                val author = editorTopBarName.value.ifBlank { "এইচ. এম. ইব্রাহীম ত্বহা সরকার - কাব্যলোকের ব্রক্ষকবি" }
+                val htmlContent = PdfExportHelper.buildHtmlForNotes(listOf(note), isSingleNote = true, authorName = author)
                 PdfExportHelper.exportToPdfToUri(
                     context = context,
                     htmlContent = htmlContent,
@@ -607,7 +608,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     return@launch
                 }
 
-                val htmlContent = PdfExportHelper.buildHtmlForNotes(notes, isSingleNote = false)
+                val author = editorTopBarName.value.ifBlank { "এইচ. এম. ইব্রাহীম ত্বহা সরকার - কাব্যলোকের ব্রক্ষকবি" }
+                val htmlContent = PdfExportHelper.buildHtmlForNotes(notes, isSingleNote = false, authorName = author)
                 PdfExportHelper.exportToPdfToUri(
                     context = context,
                     htmlContent = htmlContent,
