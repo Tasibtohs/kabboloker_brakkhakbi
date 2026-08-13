@@ -83,8 +83,8 @@ jobs:
       with:
         # 🔥 সঠিক পাথ - ফোল্ডার ছাড়া সরাসরি APK ফাইল
         artifacts: "app/build/outputs/apk/release/*.apk"
-        tag: v1.0.${{ github.run_number }}
-        name: "Kabboloker Brakkhakbi v1.0.${{ github.run_number }}"
+        tag: v1.0.0
+        name: "Kabboloker Brakkhakbi v1.0.0"
         body: |
           ✅ Release APK - Ready to install
           
