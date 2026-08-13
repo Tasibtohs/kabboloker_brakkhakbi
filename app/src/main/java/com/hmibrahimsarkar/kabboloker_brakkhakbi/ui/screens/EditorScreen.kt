@@ -190,14 +190,14 @@ fun EditorScreen(
 
     val scrollState = rememberScrollState()
 
-    // Auto-scroll when typing near the bottom so newly typed text is visible above keyboard
-    LaunchedEffect(noteState.content, noteState.title) {
-        if (scrollState.maxValue > 0) {
-            val isNearBottom = scrollState.value >= (scrollState.maxValue - 400)
-            if (isNearBottom || noteState.content.length <= 100) {
-                scrollState.animateScrollTo(scrollState.maxValue)
-            }
-        }
+    // Always reset scroll to the very top when opening a note or changing notes
+    LaunchedEffect(noteId) {
+        scrollState.scrollTo(0)
+    }
+
+    // Reset scroll to top when toggling reading mode
+    LaunchedEffect(isReadingMode) {
+        scrollState.scrollTo(0)
     }
 
     BackHandler(enabled = isReadingMode) {
@@ -643,25 +643,37 @@ fun EditorScreen(
                 )
 
                 // Poet/Author footer line
-                val authorDisplayName = "এইচ. এম. ইব্রাহীম ত্বহা সরকার - কাব্যলোকের ব্রক্ষকবি"
-                Spacer(modifier = Modifier.height(28.dp))
-                HorizontalDivider(
-                    color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f),
-                    modifier = Modifier
-                        .fillMaxWidth(0.25f)
-                        .align(if (alignValue == TextAlign.Center) Alignment.CenterHorizontally else if (alignValue == TextAlign.Right) Alignment.End else Alignment.Start)
-                )
-                Spacer(modifier = Modifier.height(10.dp))
-                Text(
-                    text = "— লেখক: $authorDisplayName",
-                    fontSize = 13.sp,
-                    fontStyle = FontStyle.Italic,
-                    fontWeight = FontWeight.Medium,
-                    fontFamily = selectedFontOption.fontFamily,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.75f),
-                    textAlign = alignValue,
-                    modifier = Modifier.fillMaxWidth()
-                )
+                val authorSignature = if (editorTopBarName.isNotBlank() && editorTopBarName != "কাব্যলোকের ব্রক্ষকবি") {
+                    editorTopBarName
+                } else {
+                    "এইচ. এম. ইব্রাহীম ত্বহা সরকার - কাব্যলোকের ব্রক্ষকবি"
+                }
+                val authorDisplayName = when {
+                    authorSignature.isBlank() -> ""
+                    authorSignature.contains("কাব্যলোকের") -> authorSignature
+                    else -> "$authorSignature – কাব্যলোকের ব্রক্ষকবি"
+                }
+
+                if (authorDisplayName.isNotBlank()) {
+                    Spacer(modifier = Modifier.height(28.dp))
+                    HorizontalDivider(
+                        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f),
+                        modifier = Modifier
+                            .fillMaxWidth(0.25f)
+                            .align(if (alignValue == TextAlign.Center) Alignment.CenterHorizontally else if (alignValue == TextAlign.Right) Alignment.End else Alignment.Start)
+                    )
+                    Spacer(modifier = Modifier.height(10.dp))
+                    Text(
+                        text = "— লেখক: $authorDisplayName",
+                        fontSize = 13.sp,
+                        fontStyle = FontStyle.Italic,
+                        fontWeight = FontWeight.Medium,
+                        fontFamily = selectedFontOption.fontFamily,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.75f),
+                        textAlign = alignValue,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
 
                 Spacer(modifier = Modifier.height(180.dp))
             }
