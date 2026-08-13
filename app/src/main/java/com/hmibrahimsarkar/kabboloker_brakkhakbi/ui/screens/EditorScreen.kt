@@ -642,7 +642,7 @@ fun EditorScreen(
                 )
 
                 // Poet/Author footer line
-                val authorDisplayName = editorTopBarName.ifBlank { "কাব্যলোকের ব্রক্ষকবি" }
+                val authorDisplayName = editorTopBarName.ifBlank { "এইচ.এম. ইব্রাহীম ত্বহা সরকার – কাব্যলোকের ব্রক্ষকবি" }
                 Spacer(modifier = Modifier.height(28.dp))
                 HorizontalDivider(
                     color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f),
@@ -652,7 +652,7 @@ fun EditorScreen(
                 )
                 Spacer(modifier = Modifier.height(10.dp))
                 Text(
-                    text = "— লেখক: $authorDisplayName",
+                    text = "— লেখক : $authorDisplayName",
                     fontSize = 13.sp,
                     fontStyle = FontStyle.Italic,
                     fontWeight = FontWeight.Medium,
