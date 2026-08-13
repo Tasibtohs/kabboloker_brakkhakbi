@@ -254,18 +254,30 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 "OLDEST_FIRST" -> list.sortedWith(
                     compareByDescending<NoteEntity> { it.isPinned }
                         .thenBy { it.updatedAt }
+                        .thenBy { it.id }
                 )
                 "TITLE_ASC" -> list.sortedWith(
                     compareByDescending<NoteEntity> { it.isPinned }
-                        .thenBy(bnCollator) { if (it.title.isBlank()) " " else it.title }
+                        .thenComparator { a, b ->
+                            val titleA = a.title.trim().ifEmpty { "\uFFFF" }
+                            val titleB = b.title.trim().ifEmpty { "\uFFFF" }
+                            val comp = bnCollator.compare(titleA, titleB)
+                            if (comp != 0) comp else b.updatedAt.compareTo(a.updatedAt)
+                        }
                 )
                 "TITLE_DESC" -> list.sortedWith(
                     compareByDescending<NoteEntity> { it.isPinned }
-                        .thenByDescending(bnCollator) { if (it.title.isBlank()) " " else it.title }
+                        .thenComparator { a, b ->
+                            val titleA = a.title.trim().ifEmpty { "\u0000" }
+                            val titleB = b.title.trim().ifEmpty { "\u0000" }
+                            val comp = bnCollator.compare(titleB, titleA)
+                            if (comp != 0) comp else b.updatedAt.compareTo(a.updatedAt)
+                        }
                 )
                 else -> list.sortedWith( // "NEWEST_FIRST"
                     compareByDescending<NoteEntity> { it.isPinned }
                         .thenByDescending { it.updatedAt }
+                        .thenByDescending { it.id }
                 )
             }
         }
