@@ -119,7 +119,6 @@ import com.hmibrahimsarkar.kabboloker_brakkhakbi.ui.components.InfoBar
 import com.hmibrahimsarkar.kabboloker_brakkhakbi.ui.components.NoteCardItem
 import com.hmibrahimsarkar.kabboloker_brakkhakbi.ui.components.NoteGridItem
 import com.hmibrahimsarkar.kabboloker_brakkhakbi.ui.components.NoteListItem
-import com.hmibrahimsarkar.kabboloker_brakkhakbi.ui.components.PasswordPromptDialog
 import com.hmibrahimsarkar.kabboloker_brakkhakbi.ui.theme.AmberAccent
 import com.hmibrahimsarkar.kabboloker_brakkhakbi.ui.theme.GoldDark
 import com.hmibrahimsarkar.kabboloker_brakkhakbi.ui.theme.GoldGlow
@@ -176,10 +175,6 @@ fun NotesListScreen(
     var showAssignGroupDialog by remember { mutableStateOf(false) }
     var showDeleteConfirmModal by remember { mutableStateOf(false) }
     var noteToDelete by remember { mutableStateOf<NoteEntity?>(null) }
-
-    // Locked note prompt
-    var pendingLockedNote by remember { mutableStateOf<NoteEntity?>(null) }
-    var passwordErrorMsg by remember { mutableStateOf<String?>(null) }
 
     Scaffold(
         topBar = {
@@ -731,11 +726,7 @@ fun NotesListScreen(
                                             if (selectedNoteIds.isNotEmpty()) {
                                                 viewModel.toggleNoteSelection(note.id)
                                             } else {
-                                                if (note.isLocked) {
-                                                    pendingLockedNote = note
-                                                } else {
-                                                    onOpenEditor(note.id)
-                                                }
+                                                onOpenEditor(note.id)
                                             }
                                         },
                                         onLongClick = {
@@ -777,11 +768,7 @@ fun NotesListScreen(
                                             if (selectedNoteIds.isNotEmpty()) {
                                                 viewModel.toggleNoteSelection(note.id)
                                             } else {
-                                                if (note.isLocked) {
-                                                    pendingLockedNote = note
-                                                } else {
-                                                    onOpenEditor(note.id)
-                                                }
+                                                onOpenEditor(note.id)
                                             }
                                         },
                                         onLongClick = {
@@ -823,11 +810,7 @@ fun NotesListScreen(
                                             if (selectedNoteIds.isNotEmpty()) {
                                                 viewModel.toggleNoteSelection(note.id)
                                             } else {
-                                                if (note.isLocked) {
-                                                    pendingLockedNote = note
-                                                } else {
-                                                    onOpenEditor(note.id)
-                                                }
+                                                onOpenEditor(note.id)
                                             }
                                         },
                                         onLongClick = {
@@ -852,29 +835,6 @@ fun NotesListScreen(
                 }
             }
         }
-    }
-
-    // Password Prompt for Locked Note
-    if (pendingLockedNote != null) {
-        PasswordPromptDialog(
-            title = "সুরক্ষিত নোট",
-            subtitle = "'${pendingLockedNote!!.title}' দেখতে পাসওয়ার্ড দিন",
-            errorText = passwordErrorMsg,
-            onConfirm = { inputPass ->
-                if (viewModel.themePreferences.verifyPassword(inputPass, savedPasswordHash)) {
-                    val targetId = pendingLockedNote!!.id
-                    pendingLockedNote = null
-                    passwordErrorMsg = null
-                    onOpenEditor(targetId)
-                } else {
-                    passwordErrorMsg = "ভুল পাসওয়ার্ড! আবার চেষ্টা করুন।"
-                }
-            },
-            onDismiss = {
-                pendingLockedNote = null
-                passwordErrorMsg = null
-            }
-        )
     }
 
     // Assign Group Dialog
