@@ -81,6 +81,7 @@ class EditorViewModel(application: Application) : AndroidViewModel(application) 
     }
 
     fun updateTitle(newTitle: String) {
+        if (_noteState.value.isLocked) return
         saveHistoryState()
         val activeId = currentNoteId ?: _noteState.value.id
         _noteState.value = _noteState.value.copy(id = activeId, title = newTitle, updatedAt = System.currentTimeMillis())
@@ -88,6 +89,7 @@ class EditorViewModel(application: Application) : AndroidViewModel(application) 
     }
 
     fun updateContent(newContent: String) {
+        if (_noteState.value.isLocked) return
         saveHistoryState()
         val activeId = currentNoteId ?: _noteState.value.id
         _noteState.value = _noteState.value.copy(id = activeId, content = newContent, updatedAt = System.currentTimeMillis())
@@ -112,6 +114,9 @@ class EditorViewModel(application: Application) : AndroidViewModel(application) 
         isHidden: Boolean? = null
     ) {
         val current = _noteState.value
+        // If note is currently locked and we're not changing the lock state itself, prevent edits
+        if (current.isLocked && isLocked == null) return
+
         val activeId = currentNoteId ?: current.id
         _noteState.value = current.copy(
             id = activeId,
