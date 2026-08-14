@@ -47,6 +47,7 @@ import androidx.compose.material.icons.filled.FormatAlignRight
 import androidx.compose.material.icons.filled.FormatSize
 import androidx.compose.material.icons.filled.Lightbulb
 import androidx.compose.material.icons.filled.NotificationsActive
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Security
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.AlertDialog
@@ -81,6 +82,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -95,6 +97,7 @@ import com.hmibrahimsarkar.kabboloker_brakkhakbi.ui.theme.GoldDark
 import com.hmibrahimsarkar.kabboloker_brakkhakbi.ui.theme.GoldLight
 import com.hmibrahimsarkar.kabboloker_brakkhakbi.ui.theme.GoldPrimary
 import com.hmibrahimsarkar.kabboloker_brakkhakbi.ui.viewmodel.MainViewModel
+import com.hmibrahimsarkar.kabboloker_brakkhakbi.util.PdfExportHelper
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -109,6 +112,7 @@ fun SettingsScreen(
     val passwordHash by viewModel.appPasswordHash.collectAsState()
     val fontSizePreference by viewModel.fontSizePreference.collectAsState()
     val currentTopBarName by viewModel.editorTopBarName.collectAsState()
+    val currentAuthorSignatureName by viewModel.authorSignatureName.collectAsState()
 
     // Default Writing Settings
     val defaultFontSizeKey by viewModel.defaultFontSizeKey.collectAsState()
@@ -174,12 +178,99 @@ fun SettingsScreen(
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
 
-            // ================= 1. EDITOR TOP BAR NAME CUSTOMIZATION =================
+            // ================= 1. ✍️ AUTHOR NAME & SIGNATURE SETTING =================
+            var inputAuthorName by remember(currentAuthorSignatureName) { mutableStateOf(currentAuthorSignatureName) }
+            ElevatedGlassCard {
+                SectionHeader(
+                    title = "লেখকের নাম ও স্বাক্ষর",
+                    subtitle = "কবিতা ও PDF এক্সপোর্টের নিচে প্রদর্শিত লেখক স্বাক্ষর কনফিগার করুন",
+                    icon = Icons.Default.Person,
+                    iconTint = GoldPrimary
+                )
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                OutlinedTextField(
+                    value = inputAuthorName,
+                    onValueChange = { inputAuthorName = it },
+                    label = { Text("লেখকের নাম / ছদ্মনাম") },
+                    placeholder = { Text("উদা: কাজী নজরুল ইসলাম (মুছে ফেললে লুকানো থাকবে)") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(14.dp),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = GoldPrimary,
+                        unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant,
+                        focusedLabelColor = GoldPrimary
+                    )
+                )
+
+                Spacer(modifier = Modifier.height(10.dp))
+
+                // Live Preview Card
+                val previewSignature = PdfExportHelper.formatAuthorSignature(inputAuthorName)
+                Card(
+                    shape = RoundedCornerShape(10.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                    ),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp)) {
+                        Text(
+                            text = if (previewSignature.isNotBlank()) "প্রিভিউ: $previewSignature" else "ℹ️ লেখক স্বাক্ষর সম্পূর্ণ লুকানো থাকবে",
+                            fontSize = 12.5.sp,
+                            fontWeight = if (previewSignature.isNotBlank()) FontWeight.Medium else FontWeight.Normal,
+                            fontStyle = if (previewSignature.isNotBlank()) FontStyle.Italic else FontStyle.Normal,
+                            color = if (previewSignature.isNotBlank()) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(14.dp))
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.End,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    SecondaryActionButton(
+                        text = "লুকান",
+                        onClick = {
+                            inputAuthorName = ""
+                            viewModel.updateAuthorSignatureName("")
+                            Toast.makeText(context, "লেখক স্বাক্ষর লুকানো হয়েছে", Toast.LENGTH_SHORT).show()
+                        }
+                    )
+
+                    Spacer(modifier = Modifier.width(8.dp))
+
+                    SecondaryActionButton(
+                        text = "ডিফল্ট",
+                        onClick = {
+                            viewModel.resetAuthorSignatureName()
+                            Toast.makeText(context, "ডিফল্ট নাম সেট করা হয়েছে", Toast.LENGTH_SHORT).show()
+                        }
+                    )
+
+                    Spacer(modifier = Modifier.width(8.dp))
+
+                    PrimaryActionButton(
+                        text = "সংরক্ষণ",
+                        onClick = {
+                            viewModel.updateAuthorSignatureName(inputAuthorName)
+                            Toast.makeText(context, "লেখকের নাম সংরক্ষিত হয়েছে", Toast.LENGTH_SHORT).show()
+                        }
+                    )
+                }
+            }
+
+            // ================= 2. 📝 EDITOR TOP BAR NAME CUSTOMIZATION =================
             var inputTopBarName by remember(currentTopBarName) { mutableStateOf(currentTopBarName) }
             ElevatedGlassCard {
                 SectionHeader(
                     title = "এডিটর ক্যানভাস শিরোনাম",
-                    subtitle = "এডিটর স্ক্রিনের শীর্ষে আপনার নিজস্ব ছদ্মনাম বা খাতার শিরোনাম প্রদর্শন করুন",
+                    subtitle = "এডিটর স্ক্রিনের শীর্ষে আপনার নিজস্ব খাতার শিরোনাম প্রদর্শন করুন",
                     icon = Icons.Default.Edit,
                     iconTint = GoldPrimary
                 )
@@ -211,7 +302,7 @@ fun SettingsScreen(
                         text = "ডিফল্ট",
                         onClick = {
                             viewModel.resetEditorTopBarName()
-                            Toast.makeText(context, "ডিফল্ট নাম সেট করা হয়েছে", Toast.LENGTH_SHORT).show()
+                            Toast.makeText(context, "ডিফল্ট শিরোনাম সেট করা হয়েছে", Toast.LENGTH_SHORT).show()
                         }
                     )
 
@@ -221,7 +312,7 @@ fun SettingsScreen(
                         text = "সংরক্ষণ",
                         onClick = {
                             viewModel.updateEditorTopBarName(inputTopBarName)
-                            Toast.makeText(context, "টপ বার নাম সংরক্ষিত হয়েছে", Toast.LENGTH_SHORT).show()
+                            Toast.makeText(context, "টপ বার শিরোনাম সংরক্ষিত হয়েছে", Toast.LENGTH_SHORT).show()
                         }
                     )
                 }
@@ -231,7 +322,7 @@ fun SettingsScreen(
             ElevatedGlassCard {
                 SectionHeader(
                     title = "ডিফল্ট লেখার সেটিংস",
-                    subtitle = "নতুন নোট তৈরি করার সময় স্বয়ংক্রিয়ভাবে প্রয়োগকৃত ফন্ট, সাইজ ও অ্যালাইনমেন্ট",
+                    subtitle = "নতুন তৈরি ও আগের বিদ্যমান সকল নোটের জন্য প্রযোজ্য ফন্ট, সাইজ ও অ্যালাইনমেন্ট",
                     icon = Icons.Default.Create,
                     iconTint = GoldPrimary
                 )
@@ -255,8 +346,8 @@ fun SettingsScreen(
                     ),
                     selectedItem = defaultFontSizeKey,
                     onItemSelected = { key ->
-                        viewModel.setDefaultFontSizeKey(key)
-                        Toast.makeText(context, "ডিফল্ট ফন্ট সাইজ সংরক্ষিত হয়েছে", Toast.LENGTH_SHORT).show()
+                        viewModel.setDefaultFontSizeKey(key, applyToAllExisting = true)
+                        Toast.makeText(context, "ডিফল্ট ফন্ট সাইজ সকল নোটে প্রয়োগ করা হয়েছে", Toast.LENGTH_SHORT).show()
                     }
                 )
 
@@ -349,13 +440,13 @@ fun SettingsScreen(
                     ),
                     selectedItem = defaultTextAlignKey,
                     onItemSelected = { alignKey ->
-                        viewModel.setDefaultTextAlignKey(alignKey)
+                        viewModel.setDefaultTextAlignKey(alignKey, applyToAllExisting = true)
                         val label = when (alignKey) {
                             "LEFT" -> "বামে"
                             "CENTER" -> "মাঝে"
                             else -> "ডানে"
                         }
-                        Toast.makeText(context, "ডিফল্ট অ্যালাইনমেন্ট '$label' সেট করা হয়েছে", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(context, "ডিফল্ট অ্যালাইনমেন্ট '$label' সকল নোটে নির্ধারণ করা হয়েছে", Toast.LENGTH_SHORT).show()
                     },
                     iconMapper = { key ->
                         val icon = when (key) {
@@ -370,6 +461,39 @@ fun SettingsScreen(
                         )
                     }
                 )
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                Card(
+                    shape = RoundedCornerShape(10.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f)
+                    ),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text(
+                            text = "💡 এই সেটিংস নতুন ও আগের সকল নোটে স্বয়ংক্রিয়ভাবে কাজ করে।",
+                            fontSize = 12.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.weight(1f)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        PrimaryActionButton(
+                            text = "সকল নোটে প্রয়োগ",
+                            onClick = {
+                                viewModel.applyDefaultWritingStylesToAllNotes()
+                                Toast.makeText(context, "বিদ্যমান সকল নোটে ডিফল্ট স্টাইল প্রয়োগ করা হয়েছে", Toast.LENGTH_SHORT).show()
+                            }
+                        )
+                    }
+                }
             }
 
             // ================= 3. 🔔 NOTIFICATION & REMINDER =================
@@ -695,8 +819,8 @@ fun SettingsScreen(
             sheetState = fontSheetState,
             selectedFontKey = defaultFontFamilyKey,
             onFontSelected = { fontKey ->
-                viewModel.setDefaultFontFamilyKey(fontKey)
-                Toast.makeText(context, "ডিফল্ট ফন্ট আপডেট করা হয়েছে", Toast.LENGTH_SHORT).show()
+                viewModel.setDefaultFontFamilyKey(fontKey, applyToAllExisting = true)
+                Toast.makeText(context, "ডিফল্ট ফন্ট সকল নোটে আপডেট করা হয়েছে", Toast.LENGTH_SHORT).show()
                 showFontPickerSheet = false
             },
             onDismiss = { showFontPickerSheet = false }
