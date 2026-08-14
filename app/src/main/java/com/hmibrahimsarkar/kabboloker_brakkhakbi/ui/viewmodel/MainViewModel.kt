@@ -123,21 +123,48 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     val defaultTextAlignKey: StateFlow<String> = themePreferences.defaultTextAlignKey
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "LEFT")
 
-    fun setDefaultFontSizeKey(key: String) {
+    fun setDefaultFontSizeKey(key: String, applyToAllExisting: Boolean = true) {
         viewModelScope.launch {
             themePreferences.setDefaultFontSizeKey(key)
+            if (applyToAllExisting) {
+                val sizeSp = when (key) {
+                    "small" -> 14f
+                    "large" -> 22f
+                    else -> 18f
+                }
+                repository.updateAllNotesFontSize(sizeSp)
+            }
         }
     }
 
-    fun setDefaultFontFamilyKey(key: String) {
+    fun setDefaultFontFamilyKey(key: String, applyToAllExisting: Boolean = true) {
         viewModelScope.launch {
             themePreferences.setDefaultFontFamilyKey(key)
+            if (applyToAllExisting) {
+                repository.updateAllNotesFontFamily(key)
+            }
         }
     }
 
-    fun setDefaultTextAlignKey(align: String) {
+    fun setDefaultTextAlignKey(align: String, applyToAllExisting: Boolean = true) {
         viewModelScope.launch {
             themePreferences.setDefaultTextAlignKey(align)
+            if (applyToAllExisting) {
+                repository.updateAllNotesTextAlign(align)
+            }
+        }
+    }
+
+    fun applyDefaultWritingStylesToAllNotes() {
+        viewModelScope.launch {
+            val sizeSp = when (defaultFontSizeKey.value) {
+                "small" -> 14f
+                "large" -> 22f
+                else -> 18f
+            }
+            val fontKey = defaultFontFamilyKey.value
+            val align = defaultTextAlignKey.value
+            repository.updateAllNotesWritingStyle(sizeSp, fontKey, align)
         }
     }
 
@@ -204,6 +231,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     val editorTopBarName: StateFlow<String> = themePreferences.editorTopBarName
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "কাব্যলোকের ব্রক্ষকবি")
 
+    // Author Signature Name preference (for Editor footer & PDF export)
+    val authorSignatureName: StateFlow<String> = themePreferences.authorSignatureName
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "এইচ. এম. ইব্রাহীম ত্বহা সরকার - কাব্যলোকের ব্রক্ষকবি")
+
     fun updateEditorTopBarName(name: String) {
         viewModelScope.launch {
             themePreferences.setEditorTopBarName(name)
@@ -213,6 +244,18 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun resetEditorTopBarName() {
         viewModelScope.launch {
             themePreferences.resetEditorTopBarName()
+        }
+    }
+
+    fun updateAuthorSignatureName(name: String) {
+        viewModelScope.launch {
+            themePreferences.setAuthorSignatureName(name)
+        }
+    }
+
+    fun resetAuthorSignatureName() {
+        viewModelScope.launch {
+            themePreferences.resetAuthorSignatureName()
         }
     }
 
@@ -579,7 +622,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun exportNoteToPdfToUri(context: Context, note: NoteEntity, targetUri: Uri) {
         viewModelScope.launch {
             try {
-                val author = editorTopBarName.value.ifBlank { "এইচ. এম. ইব্রাহীম ত্বহা সরকার - কাব্যলোকের ব্রক্ষকবি" }
+                val author = authorSignatureName.value
                 val htmlContent = PdfExportHelper.buildHtmlForNotes(listOf(note), isSingleNote = true, authorName = author)
                 PdfExportHelper.exportToPdfToUri(
                     context = context,
@@ -608,7 +651,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     return@launch
                 }
 
-                val author = editorTopBarName.value.ifBlank { "এইচ. এম. ইব্রাহীম ত্বহা সরকার - কাব্যলোকের ব্রক্ষকবি" }
+                val author = authorSignatureName.value
                 val htmlContent = PdfExportHelper.buildHtmlForNotes(notes, isSingleNote = false, authorName = author)
                 PdfExportHelper.exportToPdfToUri(
                     context = context,
