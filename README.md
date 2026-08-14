@@ -59,8 +59,8 @@
 
 <div align="center">
 
-[![Download APK](https://img.shields.io/badge/📥%20Download%20Latest%20APK-3DDC84?style=for-the-badge&logo=android&logoColor=white&height=60)](https://github.com/Tasibtohs/kabboloker-brakkhakbi_V1.0.3/releases/latest)
-[![All Releases](https://img.shields.io/badge/📋%20All%20Releases-181717?style=for-the-badge&logo=github&logoColor=white&height=60)](https://github.com/Tasibtohs/kabboloker-brakkhakbi_V1.0.3/releases)
+[![Download APK](https://img.shields.io/badge/📥%20Download%20Latest%20APK-3DDC84?style=for-the-badge&logo=android&logoColor=white&height=60)](https://github.com/Tasibtohs/kabboloker_brakkhakbi/releases/latest)
+[![All Releases](https://img.shields.io/badge/📋%20All%20Releases-181717?style=for-the-badge&logo=github&logoColor=white&height=60)](https://github.com/Tasibtohs/kabboloker_brakkhakbi/releases)
 
 </div>
 
@@ -83,8 +83,7 @@
 <td>⬇️ ডাউনলোড</td>
 <td>APK ফাইল ডাউনলোড করুন</td>
 </tr>
-<tr>
-<td align="center">2</td>
+<tr><td align="center">2</td>
 <td>⚙️ অনুমতি</td>
 <td>Settings → Security → Unknown Sources</td>
 </tr>
@@ -407,8 +406,8 @@ graph LR
 | মাধ্যম | লিংক |
 |--------|------|
 | 📧 ইমেইল | hmibrahimsarkar@gmail.com |
-| 🐛 বাগ রিপোর্ট | [GitHub Issues](https://github.com/Tasibtohs/kabboloker-brakkhakbi_V1.0.3/issues) |
-| 💡 ফিচার রিকোয়েস্ট | [GitHub Discussions](https://github.com/Tasibtohs/kabboloker-brakkhakbi_V1.0.3/discussions) |
+| 🐛 বাগ রিপোর্ট | [GitHub Issues](https://github.com/Tasibtohs/kabboloker-brakkhakbi/issues) |
+| 💡 ফিচার রিকোয়েস্ট | [GitHub Discussions](https://github.com/Tasibtohs/kabboloker-brakkhakbi/discussions) |
 | 📱 ফেসবুক | [HM Ibrahim Sarkar](https://www.facebook.com/hmibrahimsarkar) |
 | 🐦 টুইটার | [@hmibrahimsarkar](https://twitter.com/hmibrahimsarkar) |
 
