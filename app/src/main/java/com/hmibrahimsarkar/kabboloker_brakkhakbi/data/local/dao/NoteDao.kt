@@ -69,6 +69,18 @@ interface NoteDao {
     @Query("SELECT * FROM notes")
     suspend fun getAllNotesForBackup(): List<NoteEntity>
 
+    @Query("UPDATE notes SET fontSizeSp = :fontSizeSp")
+    suspend fun updateAllNotesFontSize(fontSizeSp: Float)
+
+    @Query("UPDATE notes SET fontFamilyKey = :fontFamilyKey")
+    suspend fun updateAllNotesFontFamily(fontFamilyKey: String)
+
+    @Query("UPDATE notes SET textAlign = :textAlign")
+    suspend fun updateAllNotesTextAlign(textAlign: String)
+
+    @Query("UPDATE notes SET fontSizeSp = :fontSizeSp, fontFamilyKey = :fontFamilyKey, textAlign = :textAlign")
+    suspend fun updateAllNotesWritingStyle(fontSizeSp: Float, fontFamilyKey: String, textAlign: String)
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertAllNotes(notes: List<NoteEntity>)
 }
