@@ -59,9 +59,11 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             val isDarkModePref by mainViewModel.isDarkMode.collectAsState()
+            val fontSizePref by mainViewModel.fontSizePreference.collectAsState()
 
             KabyolokorTheme(
-                isDarkMode = isDarkModePref ?: true
+                isDarkMode = isDarkModePref ?: true,
+                fontSizePreference = fontSizePref
             ) {
                 MainAppContent(
                     viewModel = mainViewModel,
