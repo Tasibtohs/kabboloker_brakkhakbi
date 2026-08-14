@@ -40,6 +40,13 @@ class NoteRepository(
 
     suspend fun emptyTrash() = noteDao.emptyTrash()
 
+    // Default Writing Style updates to existing notes
+    suspend fun updateAllNotesFontSize(fontSizeSp: Float) = noteDao.updateAllNotesFontSize(fontSizeSp)
+    suspend fun updateAllNotesFontFamily(fontFamilyKey: String) = noteDao.updateAllNotesFontFamily(fontFamilyKey)
+    suspend fun updateAllNotesTextAlign(textAlign: String) = noteDao.updateAllNotesTextAlign(textAlign)
+    suspend fun updateAllNotesWritingStyle(fontSizeSp: Float, fontFamilyKey: String, textAlign: String) =
+        noteDao.updateAllNotesWritingStyle(fontSizeSp, fontFamilyKey, textAlign)
+
     // Group methods
     suspend fun insertGroup(group: GroupEntity): Long = groupDao.insertGroup(group)
 
