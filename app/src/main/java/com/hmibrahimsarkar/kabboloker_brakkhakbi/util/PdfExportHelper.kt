@@ -135,6 +135,24 @@ object PdfExportHelper {
     }
 
     /**
+     * Centralized formatter for author signature line.
+     * 1. Default: "— লেখক: এইচ. এম. ইব্রাহীম ত্বহা সরকার - কাব্যলোকের ব্রক্ষকবি"
+     * 2. Custom author name (e.g. "কাজী নজরুল ইসলাম"): "— লেখক: কাজী নজরুল ইসলাম – কাব্যলোকের ব্রক্ষকবি"
+     * 3. Empty author name: "" (Completely hidden)
+     */
+    fun formatAuthorSignature(authorName: String): String {
+        val trimmed = authorName.trim()
+        if (trimmed.isBlank()) return ""
+        return when {
+            trimmed == "এইচ. এম. ইব্রাহীম ত্বহা সরকার - কাব্যলোকের ব্রক্ষকবি" ||
+            trimmed == "এইচ. এম. ইব্রাহীম ত্বহা সরকার - কাব্যলোকের ব্রহ্মকবি" ||
+            trimmed == "এইচ. এম. ইব্রাহীম ত্বহা সরকার" -> "— লেখক: এইচ. এম. ইব্রাহীম ত্বহা সরকার - কাব্যলোকের ব্রক্ষকবি"
+            trimmed.contains("কাব্যলোকের") -> "— লেখক: $trimmed"
+            else -> "— লেখক: $trimmed – কাব্যলোকের ব্রক্ষকবি"
+        }
+    }
+
+    /**
      * Builds HTML template styled like a real published book or poetry collection.
      */
     fun buildHtmlForNotes(
@@ -263,11 +281,7 @@ object PdfExportHelper {
 
                 val isPageBreakNeeded = !(isSingleNote && index == 0)
 
-                val formattedAuthorText = when {
-                    authorName.isBlank() -> ""
-                    authorName.contains("কাব্যলোকের") -> "— লেখক: $authorName"
-                    else -> "— লেখক: $authorName – কাব্যলোকের ব্রহ্মকবি"
-                }
+                val formattedAuthorText = formatAuthorSignature(authorName)
 
                 val authorSignatureHtml = if (formattedAuthorText.isNotBlank()) {
                     val dividerMargin = when (alignment) {
