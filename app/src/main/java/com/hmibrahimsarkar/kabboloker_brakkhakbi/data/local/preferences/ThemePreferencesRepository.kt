@@ -34,6 +34,7 @@ class ThemePreferencesRepository(private val context: Context) {
         val SECURITY_QUESTION = stringPreferencesKey("security_question")
         val SECURITY_ANSWER_HASH = stringPreferencesKey("security_answer_hash")
         val EDITOR_TOP_BAR_NAME = stringPreferencesKey("editor_top_bar_name")
+        val AUTHOR_SIGNATURE_NAME = stringPreferencesKey("author_signature_name")
         val IS_NOTIFICATIONS_ENABLED = booleanPreferencesKey("is_notifications_enabled")
         val FONT_SIZE_PREFERENCE = stringPreferencesKey("font_size_preference")
         val CUSTOM_THEMES_JSON = stringPreferencesKey("custom_themes_json")
@@ -185,6 +186,10 @@ class ThemePreferencesRepository(private val context: Context) {
         preferences[PreferencesKeys.EDITOR_TOP_BAR_NAME] ?: "কাব্যলোকের ব্রক্ষকবি"
     }
 
+    val authorSignatureName: Flow<String> = context.dataStore.data.map { preferences ->
+        preferences[PreferencesKeys.AUTHOR_SIGNATURE_NAME] ?: "এইচ. এম. ইব্রাহীম ত্বহা সরকার - কাব্যলোকের ব্রক্ষকবি"
+    }
+
     val appPasswordHash: Flow<String?> = context.dataStore.data.map { preferences ->
         preferences[PreferencesKeys.APP_PASSWORD_HASH]
     }
@@ -273,6 +278,19 @@ class ThemePreferencesRepository(private val context: Context) {
     suspend fun resetEditorTopBarName() {
         context.dataStore.edit { preferences ->
             preferences.remove(PreferencesKeys.EDITOR_TOP_BAR_NAME)
+        }
+    }
+
+    suspend fun setAuthorSignatureName(name: String) {
+        context.dataStore.edit { preferences ->
+            // Save whatever the user enters (including empty string if user clears it)
+            preferences[PreferencesKeys.AUTHOR_SIGNATURE_NAME] = name.trim()
+        }
+    }
+
+    suspend fun resetAuthorSignatureName() {
+        context.dataStore.edit { preferences ->
+            preferences.remove(PreferencesKeys.AUTHOR_SIGNATURE_NAME)
         }
     }
 
