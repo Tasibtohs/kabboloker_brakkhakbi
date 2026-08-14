@@ -109,6 +109,7 @@ import com.hmibrahimsarkar.kabboloker_brakkhakbi.ui.theme.resolveAdaptiveTextCol
 import com.hmibrahimsarkar.kabboloker_brakkhakbi.ui.theme.resolveAdaptiveTitleColor
 import com.hmibrahimsarkar.kabboloker_brakkhakbi.ui.viewmodel.EditorViewModel
 import com.hmibrahimsarkar.kabboloker_brakkhakbi.ui.viewmodel.MainViewModel
+import com.hmibrahimsarkar.kabboloker_brakkhakbi.util.PdfExportHelper
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -137,6 +138,7 @@ fun EditorScreen(
     }
 
     val editorTopBarName by mainViewModel.editorTopBarName.collectAsState()
+    val authorSignatureName by mainViewModel.authorSignatureName.collectAsState()
 
     var isReadingMode by remember { mutableStateOf(false) }
     var isOverflowMenuExpanded by remember { mutableStateOf(false) }
@@ -213,7 +215,7 @@ fun EditorScreen(
             if (!isReadingMode) {
                 AppTopBar(
                     title = editorTopBarName.ifBlank { "কাব্যলোকের ব্রক্ষকবি" },
-                    subtitle = if (noteState.isLocked) "🔒 শুধু পঠনযোগ্য" else (if (isSaved) "" else "অটো-সেভ হচ্ছে..."),
+                    subtitle = if (noteState.isLocked) "🔒 লক করা (শুধুমাত্র পঠনযোগ্য)" else (if (isSaved) "" else "অটো-সেভ হচ্ছে..."),
                     navigationIcon = {
                         IconButton(onClick = {
                             scope.launch {
@@ -331,8 +333,13 @@ fun EditorScreen(
                                     val shareIntent = Intent(Intent.ACTION_SEND).apply {
                                         type = "text/plain"
                                         putExtra(Intent.EXTRA_SUBJECT, noteState.title)
-                                        val authorSignature = editorTopBarName.ifBlank { "কাব্যলোকের ব্রক্ষকবি" }
-                                        putExtra(Intent.EXTRA_TEXT, "${noteState.title}\n\n${noteState.content}\n\n— $authorSignature")
+                                        val signatureText = PdfExportHelper.formatAuthorSignature(authorSignatureName)
+                                        val textToShare = if (signatureText.isNotBlank()) {
+                                            "${noteState.title}\n\n${noteState.content}\n\n$signatureText"
+                                        } else {
+                                            "${noteState.title}\n\n${noteState.content}"
+                                        }
+                                        putExtra(Intent.EXTRA_TEXT, textToShare)
                                     }
                                     context.startActivity(Intent.createChooser(shareIntent, "শেয়ার করুন"))
                                 }
@@ -557,12 +564,39 @@ fun EditorScreen(
                     .padding(horizontal = 16.dp, vertical = 6.dp),
                 contentAlignment = Alignment.Center
             ) {
-                Text(
-                    text = getBengaliFullDateTime(noteState.updatedAt),
-                    fontSize = 12.sp,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.85f),
-                    textAlign = TextAlign.Center
-                )
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.Center
+                ) {
+                    if (noteState.isLocked) {
+                        Icon(
+                            imageVector = Icons.Filled.Lock,
+                            contentDescription = "Locked",
+                            tint = Color(0xFFC62828),
+                            modifier = Modifier.size(13.dp)
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(
+                            text = "লক করা (পঠনযোগ্য)",
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = Color(0xFFC62828)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = "•",
+                            fontSize = 12.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                    }
+                    Text(
+                        text = getBengaliFullDateTime(noteState.updatedAt),
+                        fontSize = 12.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.85f),
+                        textAlign = TextAlign.Center
+                    )
+                }
             }
 
             // Content Area with generous left-right padding (18.dp)
@@ -643,18 +677,9 @@ fun EditorScreen(
                 )
 
                 // Poet/Author footer line
-                val authorSignature = if (editorTopBarName.isNotBlank() && editorTopBarName != "কাব্যলোকের ব্রক্ষকবি") {
-                    editorTopBarName
-                } else {
-                    "এইচ. এম. ইব্রাহীম ত্বহা সরকার - কাব্যলোকের ব্রক্ষকবি"
-                }
-                val authorDisplayName = when {
-                    authorSignature.isBlank() -> ""
-                    authorSignature.contains("কাব্যলোকের") -> authorSignature
-                    else -> "$authorSignature – কাব্যলোকের ব্রক্ষকবি"
-                }
+                val formattedAuthorSignature = PdfExportHelper.formatAuthorSignature(authorSignatureName)
 
-                if (authorDisplayName.isNotBlank()) {
+                if (formattedAuthorSignature.isNotBlank()) {
                     Spacer(modifier = Modifier.height(28.dp))
                     HorizontalDivider(
                         color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f),
@@ -664,7 +689,7 @@ fun EditorScreen(
                     )
                     Spacer(modifier = Modifier.height(10.dp))
                     Text(
-                        text = "— লেখক: $authorDisplayName",
+                        text = formattedAuthorSignature,
                         fontSize = 13.sp,
                         fontStyle = FontStyle.Italic,
                         fontWeight = FontWeight.Medium,
