@@ -152,17 +152,113 @@ object PdfExportHelper {
         }
     }
 
+    fun toBengaliNumerals(number: Int): String {
+        val bnDigits = charArrayOf('০', '১', '২', '৩', '৪', '৫', '৬', '৭', '৮', '৯')
+        return number.toString().map { if (it in '0'..'9') bnDigits[it - '0'] else it }.joinToString("")
+    }
+
+    private sealed class PdfPageItem {
+        data class TwoColumnPage(val leftNote: NoteEntity, val rightNote: NoteEntity?) : PdfPageItem()
+        data class SpanningTwoColumnNote(val note: NoteEntity) : PdfPageItem()
+        data class FullPageNote(val note: NoteEntity) : PdfPageItem()
+    }
+
     /**
-     * Builds HTML template styled like a real published book or poetry collection.
+     * Determines whether a poem is long enough to warrant occupying a full page across two columns.
+     */
+    fun isLongPoem(note: NoteEntity): Boolean {
+        val lines = note.content.lines()
+        val lineCount = lines.size
+        val charCount = note.content.length
+        return lineCount > 18 || charCount > 450
+    }
+
+    /**
+     * Calculates optimal typography for a single column inside a two-card page.
+     */
+    private fun calculateColumnTypography(
+        content: String,
+        userFontSizeSp: Float,
+        userLineSpacingMultiplier: Float
+    ): Pair<Float, Float> {
+        val lines = content.lines()
+        val lineCount = lines.size
+        val charCount = content.length
+
+        return when {
+            lineCount > 16 || charCount > 380 -> Pair(13.5f, 1.34f)
+            lineCount > 12 || charCount > 260 -> Pair(14.5f, 1.40f)
+            lineCount > 8  || charCount > 160 -> Pair(15.5f, 1.45f)
+            else -> {
+                val base = (userFontSizeSp * 0.95f).coerceIn(15.0f, 17.5f)
+                val lRatio = userLineSpacingMultiplier.coerceIn(1.42f, 1.55f)
+                Pair(base, lRatio)
+            }
+        }
+    }
+
+    /**
+     * Calculates optimal typography for a long poem spanning 2 columns across the whole page.
+     */
+    private fun calculateSpanningTypography(
+        content: String,
+        userFontSizeSp: Float,
+        userLineSpacingMultiplier: Float
+    ): Pair<Float, Float> {
+        val lines = content.lines()
+        val lineCount = lines.size
+        val charCount = content.length
+
+        return when {
+            lineCount > 48 || charCount > 1600 -> Pair(12.5f, 1.30f)
+            lineCount > 36 || charCount > 1100 -> Pair(13.5f, 1.36f)
+            lineCount > 24 || charCount > 700  -> Pair(15.0f, 1.42f)
+            else -> {
+                val base = (userFontSizeSp * 0.95f).coerceIn(15.5f, 18.0f)
+                val lRatio = userLineSpacingMultiplier.coerceIn(1.42f, 1.55f)
+                Pair(base, lRatio)
+            }
+        }
+    }
+
+    /**
+     * Calculates optimal typography for a single note spanning the full landscape page.
+     */
+    private fun calculateSingleNoteTypography(
+        content: String,
+        userFontSizeSp: Float,
+        userLineSpacingMultiplier: Float
+    ): Pair<Float, Float> {
+        val lines = content.lines()
+        val lineCount = lines.size
+        val charCount = content.length
+
+        return when {
+            lineCount > 35 || charCount > 1200 -> Pair(14.0f, 1.35f)
+            lineCount > 24 || charCount > 800  -> Pair(16.0f, 1.40f)
+            lineCount > 16 || charCount > 500  -> Pair(18.0f, 1.45f)
+            else -> {
+                val base = (userFontSizeSp * 1.1f).coerceIn(18.0f, 22.0f)
+                val lRatio = userLineSpacingMultiplier.coerceIn(1.45f, 1.6f)
+                Pair(base, lRatio)
+            }
+        }
+    }
+
+    /**
+     * Builds HTML template styled in A4 Landscape orientation (1123px x 794px).
+     * - Multi-note collection features an outer decorative border, individual column-cards, center alignment,
+     *   automatic multi-column continuous flow for long poems, and multi-page TOC with generous breathing room.
      */
     fun buildHtmlForNotes(
         notes: List<NoteEntity>,
         isSingleNote: Boolean,
         authorName: String = "এইচ. এম. ইব্রাহীম ত্বহা সরকার - কাব্যলোকের ব্রক্ষকবি"
     ): String {
-        Log.d(TAG, "Building HTML for notes. Count: ${notes.size}, isSingleNote: $isSingleNote, author: $authorName")
+        Log.d(TAG, "Building HTML for notes (Landscape Stylish 2-Column). Count: ${notes.size}, isSingleNote: $isSingleNote, author: $authorName")
         val exportDate = SimpleDateFormat("dd MMMM, yyyy", Locale("bn", "BD")).format(Date())
-        
+        val formattedAuthorText = formatAuthorSignature(authorName)
+
         // CSS @font-face definitions for all 20 local Bengali fonts from assets
         val fontFaceRules = BengaliFonts.fonts.joinToString("\n") { fontOption ->
             """
@@ -173,23 +269,29 @@ object PdfExportHelper {
             """.trimIndent()
         }
 
-        // 1. Cover Page (Only shown for multi-note book collection export)
+        // ================= 1. COVER PAGE (A4 LANDSCAPE) =================
         val coverPageHtml = if (!isSingleNote) {
             """
             <div class="cover-page page-break">
                 <div class="cover-border">
                     <div class="cover-inner-border">
+                        <span class="corner-ornament corner-tl">❖</span>
+                        <span class="corner-ornament corner-tr">❖</span>
+                        <span class="corner-ornament corner-bl">❖</span>
+                        <span class="corner-ornament corner-br">❖</span>
+                        
                         <div class="cover-top-ornament">❖ ❦ ❖</div>
                         <div class="cover-badge">
                             <span class="cover-icon">✒</span>
                         </div>
                         <h1 class="cover-title">কাব্যলোকের ব্রহ্মকবি</h1>
-                        <div class="cover-subtitle">~ কবি ও শব্দের আসর ~</div>
+                        <div class="cover-subtitle">~ কবি ও শব্দের আসর • কবিতা সংকলন ~</div>
                         <div class="cover-divider">✦ ❦ ✦</div>
                         <div class="cover-info">
-                            <div class="cover-info-label">কবিতা ও সাহিত্য সংকলন</div>
+                            <div class="cover-info-label">কবিতা ও সাহিত্য সংকলন (বুকলেট সংস্করণ)</div>
                             <div class="cover-date">সংকলনের তারিখ: $exportDate</div>
-                            <div class="cover-count">মোট কবিতা: ${notes.size} টি</div>
+                            <div class="cover-count">মোট কবিতা: ${toBengaliNumerals(notes.size)} টি</div>
+                            ${if (formattedAuthorText.isNotBlank()) "<div class=\"cover-author\">${escapeHtml(formattedAuthorText)}</div>" else ""}
                         </div>
                         <div class="cover-footer-text">একটি অনবদ্য সাহিত্য সৃষ্টি</div>
                         <div class="cover-bottom-ornament">❖ ❦ ❖</div>
@@ -199,167 +301,386 @@ object PdfExportHelper {
             """.trimIndent()
         } else ""
 
-        // 2. Table of Contents Page (Shown if multiple notes in collection)
-        val tocPageHtml = if (!isSingleNote && notes.size > 1) {
-            val tocItems = notes.mapIndexed { index, note ->
-                val title = if (note.title.isNotBlank()) note.title else "শিরোনামহীন কবিতা"
-                val pageNum = 3 + index
-                """
-                <div class="toc-item">
-                    <span class="toc-item-title">${index + 1}. ${escapeHtml(title)}</span>
-                    <span class="toc-leader"></span>
-                    <span class="toc-item-page">$pageNum</span>
-                </div>
-                """.trimIndent()
-            }.joinToString("\n")
-
-            """
-            <div class="toc-page page-break">
-                <div class="toc-container">
-                    <div class="toc-header">
-                        <div class="toc-ornament">❖</div>
-                        <h2 class="toc-title">সূচিপত্র</h2>
-                        <div class="toc-subtitle">কাব্য সংকলন সূচী</div>
-                        <div class="toc-line"></div>
-                    </div>
-                    <div class="toc-list">
-                        $tocItems
-                    </div>
-                    <div class="toc-footer">
-                        <span>কাব্যলোকের ব্রহ্মকবি</span>
-                    </div>
-                </div>
-            </div>
-            """.trimIndent()
-        } else ""
-
-        // 3. Poem Pages HTML (With try-catch per note)
-        val notesHtml = notes.mapIndexed { index, note ->
-            try {
-                val title = if (note.title.isNotBlank()) note.title else "শিরোনামহীন কবিতা"
-                val content = if (note.content.isNotBlank()) note.content else "(ফাঁকা কবিতা)"
-                
-                val noteDate = SimpleDateFormat("dd MMMM, yyyy • hh:mm a", Locale("bn", "BD")).format(Date(note.createdAt))
-                val updatedDate = SimpleDateFormat("dd MMMM, yyyy • hh:mm a", Locale("bn", "BD")).format(Date(note.updatedAt))
-                
-                val fontOption = BengaliFonts.getFontByKey(note.fontFamilyKey)
-                val fontCssFamily = "'${fontOption.key}', 'Tiro Bangla', serif, sans-serif"
-
-                val readableTitleColor = ensureReadableTextColor(note.titleColorHex, defaultColorHex = "#B8860B")
-                val readableTextColor = ensureReadableTextColor(note.textColorHex, defaultColorHex = "#2C2C3A")
-                val alignment = note.textAlign.lowercase()
-                
-                val textDecorations = mutableListOf<String>()
-                if (note.isUnderline) textDecorations.add("underline")
-                if (note.isStrikethrough) textDecorations.add("line-through")
-                val textDecorationCss = if (textDecorations.isNotEmpty()) textDecorations.joinToString(" ") else "none"
-                
-                val fontWeight = if (note.isBold) "bold" else "normal"
-                val fontStyle = if (note.isItalic) "italic" else "normal"
-                
-                // Dynamic font size and line-spacing based on poem line count and length to fit within a single page
-                val rawLines = content.lines()
-                val lineCount = rawLines.size
-                val charCount = content.length
-
-                val (fontSizePx, lineHeightRatio) = when {
-                    lineCount > 35 || charCount > 1000 -> Pair(16.0f, 1.4f)
-                    lineCount > 22 || charCount > 500  -> Pair(18.0f, 1.45f)
-                    lineCount > 14 || charCount > 300  -> Pair(20.0f, 1.5f)
-                    else -> {
-                        val userSp = note.fontSizeSp.coerceIn(14f, 22f)
-                        val fPx = (userSp * 1.25f).coerceIn(20.0f, 24.0f)
-                        val lRatio = note.lineSpacingMultiplier.coerceIn(1.45f, 1.6f)
-                        Pair(fPx, lRatio)
+        // ================= PAIRING & PACKING LOGIC =================
+        val pageItems = mutableListOf<PdfPageItem>()
+        if (isSingleNote) {
+            if (notes.isNotEmpty()) {
+                val note = notes.first()
+                if (isLongPoem(note)) {
+                    pageItems.add(PdfPageItem.SpanningTwoColumnNote(note))
+                } else {
+                    pageItems.add(PdfPageItem.FullPageNote(note))
+                }
+            }
+        } else {
+            var i = 0
+            while (i < notes.size) {
+                val current = notes[i]
+                if (isLongPoem(current)) {
+                    // Long poem takes a whole page with continuous 2-column flow inside a unified card
+                    pageItems.add(PdfPageItem.SpanningTwoColumnNote(current))
+                    i++
+                } else {
+                    // Normal short poem fits in one column card
+                    val next = notes.getOrNull(i + 1)
+                    if (next != null) {
+                        if (isLongPoem(next)) {
+                            // Next is long, so pair current with empty right card, then next will get its own full-page
+                            pageItems.add(PdfPageItem.TwoColumnPage(current, null))
+                            i++
+                        } else {
+                            // Both fit as two cards on the same page
+                            pageItems.add(PdfPageItem.TwoColumnPage(current, next))
+                            i += 2
+                        }
+                    } else {
+                        // Odd single poem remaining at the end
+                        pageItems.add(PdfPageItem.TwoColumnPage(current, null))
+                        i++
                     }
                 }
+            }
+        }
 
-                val safeTitle = escapeHtml(title)
-                val safeContent = escapeHtml(content)
+        // ================= 2. TABLE OF CONTENTS (A4 LANDSCAPE — UP TO 2 PAGES) =================
+        // Calculate TOC pages count: if notes > 8 split into 2 pages to provide spacious breathing room
+        val tocPageCount = if (isSingleNote || notes.size <= 1) 0 else if (notes.size > 8) 2 else 1
+        val notePageMap = mutableMapOf<Long, Int>()
 
-                val displayPageNum = if (isSingleNote) "১" else "${3 + index}"
+        var runningPageNum = 1 + tocPageCount + 1 // Cover = 1, TOC pages = 2..1+tocPageCount, Poems start next
+        for (item in pageItems) {
+            when (item) {
+                is PdfPageItem.TwoColumnPage -> {
+                    notePageMap[item.leftNote.id] = runningPageNum
+                    item.rightNote?.let { notePageMap[it.id] = runningPageNum }
+                    runningPageNum++
+                }
+                is PdfPageItem.SpanningTwoColumnNote -> {
+                    notePageMap[item.note.id] = runningPageNum
+                    runningPageNum++
+                }
+                is PdfPageItem.FullPageNote -> {
+                    notePageMap[item.note.id] = runningPageNum
+                    runningPageNum++
+                }
+            }
+        }
 
-                val isPageBreakNeeded = !(isSingleNote && index == 0)
+        val tocPageHtml = if (!isSingleNote && notes.size > 1) {
+            val tocChunks = if (tocPageCount == 2) {
+                val half = (notes.size + 1) / 2
+                listOf(notes.take(half) to 1, notes.drop(half) to 2)
+            } else {
+                listOf(notes to 1)
+            }
 
-                val formattedAuthorText = formatAuthorSignature(authorName)
-
-                val authorSignatureHtml = if (formattedAuthorText.isNotBlank()) {
-                    val dividerMargin = when (alignment) {
-                        "center" -> "margin: 0 auto 8px auto;"
-                        "right" -> "margin: 0 0 8px auto;"
-                        else -> "margin: 0 auto 8px 0;"
-                    }
+            var globalIndex = 0
+            tocChunks.joinToString("\n") { (chunkNotes, tocPart) ->
+                val tocItems = chunkNotes.map { note ->
+                    globalIndex++
+                    val title = if (note.title.isNotBlank()) note.title else "শিরোনামহীন কবিতা"
+                    val pageNum = notePageMap[note.id] ?: (1 + tocPageCount + 1)
+                    val bnPageNum = toBengaliNumerals(pageNum)
                     """
-                    <div class="poem-author-section" style="text-align: $alignment;">
-                        <div class="author-divider-line" style="$dividerMargin"></div>
-                        <div class="author-signature-text" style="font-family: $fontCssFamily; text-align: $alignment;">${escapeHtml(formattedAuthorText)}</div>
+                    <div class="toc-item">
+                        <span class="toc-item-title">${toBengaliNumerals(globalIndex)}. ${escapeHtml(title)}</span>
+                        <span class="toc-leader"></span>
+                        <span class="toc-item-page">$bnPageNum</span>
                     </div>
                     """.trimIndent()
-                } else ""
+                }.joinToString("\n")
+
+                val partSubtitle = if (tocPageCount == 2) {
+                    if (tocPart == 1) "কাব্য সংকলন সূচী • প্রথম পর্ব" else "কাব্য সংকলন সূচী • দ্বিতীয় পর্ব"
+                } else {
+                    "কাব্য সংকলন সূচী • বুকলেট সংস্করণ"
+                }
+
+                val tocPageNumBn = toBengaliNumerals(1 + tocPart)
 
                 """
-                <div class="note-page ${if (isPageBreakNeeded) "page-break" else ""}">
-                    <div class="page-top-ornament">
-                        <span class="top-line"></span>
-                        <span class="top-symbol">✦ ❦ ✦</span>
-                        <span class="top-line"></span>
-                    </div>
-                    
-                    <div class="poem-header" style="text-align: $alignment;">
-                        <h1 class="poem-title" style="color: $readableTitleColor; font-family: $fontCssFamily;">$safeTitle</h1>
-                        <div class="poem-divider">
-                            <span class="poem-divider-line"></span>
-                            <span class="poem-symbol">❦</span>
-                            <span class="poem-divider-line"></span>
-                        </div>
-                        <div class="poem-meta">
-                            <span>রচনাকাল: $noteDate</span>
-                            ${if (note.updatedAt > note.createdAt + 60000) " • <span>সম্পাদিত: $updatedDate</span>" else ""}
-                        </div>
-                    </div>
+                <div class="landscape-page toc-page page-break">
+                    <div class="page-outer-frame">
+                        <div class="page-inner-frame">
+                            <span class="corner-ornament corner-tl">❖</span>
+                            <span class="corner-ornament corner-tr">❖</span>
+                            <span class="corner-ornament corner-bl">❖</span>
+                            <span class="corner-ornament corner-br">❖</span>
 
-                    <div class="poem-body" style="
-                        color: $readableTextColor;
-                        font-size: ${fontSizePx}px;
-                        font-weight: $fontWeight;
-                        font-style: $fontStyle;
-                        text-decoration: $textDecorationCss;
-                        text-align: $alignment;
-                        line-height: $lineHeightRatio;
-                        font-family: $fontCssFamily;
-                    ">$safeContent</div>
+                            <!-- Page Top Header -->
+                            <div class="page-top-header">
+                                <span class="header-left">কাব্যলোকের ব্রহ্মকবি</span>
+                                <span class="header-center">✦ ❦ ✦</span>
+                                <span class="header-right">$exportDate</span>
+                            </div>
+                            <div class="header-divider-line"></div>
 
-                    $authorSignatureHtml
+                            <!-- TOC Body Container -->
+                            <div class="toc-content-wrapper">
+                                <div class="toc-header">
+                                    <div class="toc-ornament">❖</div>
+                                    <h2 class="toc-title">সূচিপত্র</h2>
+                                    <div class="toc-subtitle">$partSubtitle</div>
+                                    <div class="toc-line"></div>
+                                </div>
+                                <div class="toc-grid">
+                                    $tocItems
+                                </div>
+                            </div>
 
-                    <div class="page-bottom-footer">
-                        <div class="footer-divider"></div>
-                        <div class="footer-row">
-                            <span class="footer-app-name">কাব্যলোকের ব্রহ্মকবি</span>
-                            <span class="footer-page-num">— $displayPageNum —</span>
+                            <!-- Page Bottom Footer -->
+                            <div class="page-bottom-footer">
+                                <div class="footer-divider"></div>
+                                <div class="footer-row">
+                                    <span class="footer-app-name">কাব্যলোকের ব্রহ্মকবি</span>
+                                    <span class="footer-page-num">— $tocPageNumBn —</span>
+                                    <span class="footer-app-name">সূচিপত্র</span>
+                                </div>
+                            </div>
                         </div>
                     </div>
-                </div>
-                """.trimIndent()
-            } catch (e: Exception) {
-                Log.e(TAG, "Error building HTML for note index $index, id ${note.id}", e)
-                """
-                <div class="note-page page-break">
-                    <h1 class="poem-title" style="color: #2C2C3A;">${escapeHtml(note.title.ifBlank { "নোট" })}</h1>
-                    <div class="poem-body" style="color: #2C2C3A;">${escapeHtml(note.content)}</div>
                 </div>
                 """.trimIndent()
             }
+        } else ""
+
+        // ================= 3. RENDER POEMS (CENTER-ALIGNED) =================
+        fun renderPoemContent(note: NoteEntity, isSpanning: Boolean = false, isFullPage: Boolean = false): String {
+            val title = if (note.title.isNotBlank()) note.title else "শিরোনামহীন কবিতা"
+            val content = if (note.content.isNotBlank()) note.content else "(ফাঁকা কবিতা)"
+
+            val noteDate = SimpleDateFormat("dd MMMM, yyyy • hh:mm a", Locale("bn", "BD")).format(Date(note.createdAt))
+            val updatedDate = SimpleDateFormat("dd MMMM, yyyy • hh:mm a", Locale("bn", "BD")).format(Date(note.updatedAt))
+
+            val fontOption = BengaliFonts.getFontByKey(note.fontFamilyKey)
+            val fontCssFamily = "'${fontOption.key}', 'Tiro Bangla', serif, sans-serif"
+
+            val readableTitleColor = ensureReadableTextColor(note.titleColorHex, defaultColorHex = "#B8860B")
+            val readableTextColor = ensureReadableTextColor(note.textColorHex, defaultColorHex = "#2C2C3A")
+
+            val textDecorations = mutableListOf<String>()
+            if (note.isUnderline) textDecorations.add("underline")
+            if (note.isStrikethrough) textDecorations.add("line-through")
+            val textDecorationCss = if (textDecorations.isNotEmpty()) textDecorations.joinToString(" ") else "none"
+
+            val fontWeight = if (note.isBold) "bold" else "normal"
+            val fontStyle = if (note.isItalic) "italic" else "normal"
+
+            val (fontSizePx, lineHeightRatio) = when {
+                isSpanning -> calculateSpanningTypography(content, note.fontSizeSp, note.lineSpacingMultiplier)
+                isFullPage -> calculateSingleNoteTypography(content, note.fontSizeSp, note.lineSpacingMultiplier)
+                else -> calculateColumnTypography(content, note.fontSizeSp, note.lineSpacingMultiplier)
+            }
+
+            val safeTitle = escapeHtml(title)
+            val safeContent = escapeHtml(content)
+
+            val authorSignatureHtml = if (formattedAuthorText.isNotBlank()) {
+                """
+                <div class="poem-author-section">
+                    <div class="author-divider-line"></div>
+                    <div class="author-signature-text" style="font-family: $fontCssFamily;">${escapeHtml(formattedAuthorText)}</div>
+                </div>
+                """.trimIndent()
+            } else ""
+
+            val poemBodyClass = if (isSpanning) "poem-body spanning-poem-body" else "poem-body"
+
+            return """
+            <div class="poem-card-inner">
+                <div class="poem-header">
+                    <h2 class="poem-title" style="color: $readableTitleColor; font-family: $fontCssFamily;">$safeTitle</h2>
+                    <div class="poem-divider">
+                        <span class="poem-divider-line"></span>
+                        <span class="poem-symbol">❦</span>
+                        <span class="poem-divider-line"></span>
+                    </div>
+                    <div class="poem-meta">
+                        <span>রচনাকাল: $noteDate</span>
+                        ${if (note.updatedAt > note.createdAt + 60000) " • <span>সম্পাদিত: $updatedDate</span>" else ""}
+                    </div>
+                </div>
+
+                <div class="$poemBodyClass" style="
+                    color: $readableTextColor;
+                    font-size: ${fontSizePx}px;
+                    font-weight: $fontWeight;
+                    font-style: $fontStyle;
+                    text-decoration: $textDecorationCss;
+                    line-height: $lineHeightRatio;
+                    font-family: $fontCssFamily;
+                ">$safeContent</div>
+
+                $authorSignatureHtml
+            </div>
+            """.trimIndent()
+        }
+
+        // Build Pages HTML
+        var pageIndex = 0
+        val pagesHtml = pageItems.map { pageItem ->
+            pageIndex++
+            val pageNumBn = if (isSingleNote) "১" else toBengaliNumerals(1 + tocPageCount + pageIndex)
+            val isPageBreakNeeded = !(isSingleNote && pageIndex == 1)
+            val pageBreakClass = if (isPageBreakNeeded) "page-break" else ""
+
+            when (pageItem) {
+                is PdfPageItem.TwoColumnPage -> {
+                    val leftPoemCard = renderPoemContent(pageItem.leftNote, isSpanning = false, isFullPage = false)
+                    val rightPoemCard = if (pageItem.rightNote != null) {
+                        renderPoemContent(pageItem.rightNote, isSpanning = false, isFullPage = false)
+                    } else {
+                        """
+                        <div class="poem-column-empty">
+                            <div class="empty-column-motif">❖ ❦ ❖</div>
+                        </div>
+                        """.trimIndent()
+                    }
+
+                    """
+                    <div class="landscape-page two-column-page $pageBreakClass">
+                        <div class="page-outer-frame">
+                            <div class="page-inner-frame">
+                                <span class="corner-ornament corner-tl">❖</span>
+                                <span class="corner-ornament corner-tr">❖</span>
+                                <span class="corner-ornament corner-bl">❖</span>
+                                <span class="corner-ornament corner-br">❖</span>
+
+                                <!-- Top Header -->
+                                <div class="page-top-header">
+                                    <span class="header-left">কাব্যলোকের ব্রহ্মকবি</span>
+                                    <span class="header-center">✦ ❦ ✦</span>
+                                    <span class="header-right">$exportDate</span>
+                                </div>
+                                <div class="header-divider-line"></div>
+
+                                <!-- Two-Column Container (Distinct Column Card Borders) -->
+                                <div class="two-column-container">
+                                    <div class="poem-card poem-card-left">
+                                        $leftPoemCard
+                                    </div>
+                                    <div class="poem-card poem-card-right">
+                                        $rightPoemCard
+                                    </div>
+                                </div>
+
+                                <!-- Bottom Footer -->
+                                <div class="page-bottom-footer">
+                                    <div class="footer-divider"></div>
+                                    <div class="footer-row">
+                                        <span class="footer-app-name">কাব্যলোকের ব্রহ্মকবি</span>
+                                        <span class="footer-page-num">— $pageNumBn —</span>
+                                        <span class="footer-app-name">সাহিত্য সংকলন</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    """.trimIndent()
+                }
+                is PdfPageItem.SpanningTwoColumnNote -> {
+                    // Long poem occupying the full page inside a unified card with 2-column text flow
+                    val spanningPoemCard = renderPoemContent(pageItem.note, isSpanning = true, isFullPage = false)
+
+                    """
+                    <div class="landscape-page spanning-page $pageBreakClass">
+                        <div class="page-outer-frame">
+                            <div class="page-inner-frame">
+                                <span class="corner-ornament corner-tl">❖</span>
+                                <span class="corner-ornament corner-tr">❖</span>
+                                <span class="corner-ornament corner-bl">❖</span>
+                                <span class="corner-ornament corner-br">❖</span>
+
+                                <!-- Top Header -->
+                                <div class="page-top-header">
+                                    <span class="header-left">কাব্যলোকের ব্রহ্মকবি</span>
+                                    <span class="header-center">✦ ❦ ✦</span>
+                                    <span class="header-right">$exportDate</span>
+                                </div>
+                                <div class="header-divider-line"></div>
+
+                                <!-- Spanning Poem Container (One Unified Large Card with 2-Column Text Flow) -->
+                                <div class="spanning-poem-container">
+                                    <div class="poem-card spanning-card">
+                                        $spanningPoemCard
+                                    </div>
+                                </div>
+
+                                <!-- Bottom Footer -->
+                                <div class="page-bottom-footer">
+                                    <div class="footer-divider"></div>
+                                    <div class="footer-row">
+                                        <span class="footer-app-name">কাব্যলোকের ব্রহ্মকবি</span>
+                                        <span class="footer-page-num">— $pageNumBn —</span>
+                                        <span class="footer-app-name">সাহিত্য সংকলন</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    """.trimIndent()
+                }
+                is PdfPageItem.FullPageNote -> {
+                    val fullPoemCard = renderPoemContent(pageItem.note, isSpanning = false, isFullPage = true)
+
+                    """
+                    <div class="landscape-page single-note-page $pageBreakClass">
+                        <div class="page-outer-frame">
+                            <div class="page-inner-frame">
+                                <span class="corner-ornament corner-tl">❖</span>
+                                <span class="corner-ornament corner-tr">❖</span>
+                                <span class="corner-ornament corner-bl">❖</span>
+                                <span class="corner-ornament corner-br">❖</span>
+
+                                <!-- Top Header -->
+                                <div class="page-top-header">
+                                    <span class="header-left">কাব্যলোকের ব্রহ্মকবি</span>
+                                    <span class="header-center">✦ ❦ ✦</span>
+                                    <span class="header-right">$exportDate</span>
+                                </div>
+                                <div class="header-divider-line"></div>
+
+                                <!-- Single Poem Centered Container -->
+                                <div class="single-poem-container">
+                                    <div class="poem-card single-card">
+                                        $fullPoemCard
+                                    </div>
+                                </div>
+
+                                <!-- Bottom Footer -->
+                                <div class="page-bottom-footer">
+                                    <div class="footer-divider"></div>
+                                    <div class="footer-row">
+                                        <span class="footer-app-name">কাব্যলোকের ব্রহ্মকবি</span>
+                                        <span class="footer-page-num">— $pageNumBn —</span>
+                                        <span class="footer-app-name">সাহিত্য সংকলন</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    """.trimIndent()
+                }
+            }
         }.joinToString("\n")
 
-        // 4. Ending Page HTML (Only for multi-note book collection)
+        // ================= 4. ENDING PAGE (A4 LANDSCAPE) =================
         val endPageHtml = if (!isSingleNote) {
             """
             <div class="end-page page-break">
-                <div class="end-container">
-                    <div class="end-symbol">❖ ❦ ❖</div>
-                    <h2 class="end-title">সমাপ্তি</h2>
-                    <div class="end-line"></div>
-                    <p class="end-text">কাব্যলোকের ব্রহ্মকবি দিয়ে তৈরি • সাহিত্য সংকলন</p>
+                <div class="end-border">
+                    <div class="end-inner-border">
+                        <span class="corner-ornament corner-tl">❖</span>
+                        <span class="corner-ornament corner-tr">❖</span>
+                        <span class="corner-ornament corner-bl">❖</span>
+                        <span class="corner-ornament corner-br">❖</span>
+
+                        <div class="end-symbol">❖ ❦ ❖</div>
+                        <h2 class="end-title">সমাপ্তি</h2>
+                        <div class="end-line"></div>
+                        <p class="end-text">কাব্যলোকের ব্রহ্মকবি দিয়ে তৈরি • সাহিত্য সংকলন</p>
+                        ${if (formattedAuthorText.isNotBlank()) "<p class=\"end-author\">${escapeHtml(formattedAuthorText)}</p>" else ""}
+                    </div>
                 </div>
             </div>
             """.trimIndent()
@@ -370,12 +691,12 @@ object PdfExportHelper {
         <html lang="bn">
         <head>
             <meta charset="utf-8">
-            <meta name="viewport" content="width=794, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+            <meta name="viewport" content="width=1123, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
             <style>
                 $fontFaceRules
 
                 @page {
-                    size: A4 portrait;
+                    size: A4 landscape;
                     margin: 0;
                 }
 
@@ -386,7 +707,7 @@ object PdfExportHelper {
                 }
 
                 html, body {
-                    width: 794px;
+                    width: 1123px;
                     margin: 0;
                     padding: 0;
                     background-color: #FAF9F4; /* Warm ivory book paper */
@@ -400,11 +721,302 @@ object PdfExportHelper {
                     break-before: page !important;
                 }
 
-                /* ================= COVER PAGE STYLES ================= */
+                /* ================= OUTER DECORATIVE BORDER SYSTEM ================= */
+                .landscape-page {
+                    width: 1123px;
+                    height: 794px;
+                    min-height: 794px;
+                    padding: 22px 28px;
+                    position: relative;
+                    background-color: #FAF9F4;
+                    box-sizing: border-box;
+                    display: flex;
+                    flex-direction: column;
+                }
+
+                .page-outer-frame {
+                    width: 100%;
+                    height: 100%;
+                    border: 2px solid #D4A017;
+                    padding: 6px;
+                    box-sizing: border-box;
+                    background: transparent;
+                }
+
+                .page-inner-frame {
+                    width: 100%;
+                    height: 100%;
+                    border: 1px dashed rgba(184, 134, 11, 0.45);
+                    padding: 16px 22px;
+                    position: relative;
+                    box-sizing: border-box;
+                    display: flex;
+                    flex-direction: column;
+                    justify-content: space-between;
+                    background: radial-gradient(circle at center, #FFFDF8 0%, #FAF9F4 100%);
+                }
+
+                /* Corner Ornaments (❖) */
+                .corner-ornament {
+                    position: absolute;
+                    color: #D4A017;
+                    font-size: 13px;
+                    line-height: 1;
+                    user-select: none;
+                }
+                .corner-tl { top: 5px; left: 6px; }
+                .corner-tr { top: 5px; right: 6px; }
+                .corner-bl { bottom: 5px; left: 6px; }
+                .corner-br { bottom: 5px; right: 6px; }
+
+                /* Full-width Top Header */
+                .page-top-header {
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: center;
+                    font-size: 11px;
+                    color: #8C8C9E;
+                    width: 100%;
+                    padding-bottom: 2px;
+                    box-sizing: border-box;
+                }
+                .header-left, .header-right {
+                    color: #7A7A8E;
+                    font-weight: 500;
+                }
+                .header-center {
+                    color: #B8860B;
+                    font-size: 11px;
+                    letter-spacing: 2px;
+                }
+                .header-divider-line {
+                    height: 1px;
+                    width: 100%;
+                    background: linear-gradient(to right, transparent, #D4A017 15%, #D4A017 85%, transparent);
+                    opacity: 0.5;
+                    margin-bottom: 10px;
+                }
+
+                /* ================= 2-COLUMN CARDS CONTAINER ================= */
+                .two-column-container {
+                    display: flex;
+                    flex-direction: row;
+                    justify-content: space-between;
+                    align-items: stretch;
+                    gap: 22px;
+                    flex-grow: 1;
+                    width: 100%;
+                    min-height: 0;
+                    margin-bottom: 8px;
+                    box-sizing: border-box;
+                }
+
+                /* Individual Poem Card Frame (Rounded corners, subtle golden border, padding) */
+                .poem-card {
+                    flex: 1;
+                    box-sizing: border-box;
+                    border: 1px solid rgba(212, 160, 23, 0.45);
+                    border-radius: 10px;
+                    background: rgba(255, 255, 255, 0.65);
+                    box-shadow: 0 1px 4px rgba(184, 134, 11, 0.04);
+                    padding: 16px 20px;
+                    display: flex;
+                    flex-direction: column;
+                    justify-content: space-between;
+                    overflow: hidden;
+                }
+
+                .poem-card-inner {
+                    width: 100%;
+                    height: 100%;
+                    display: flex;
+                    flex-direction: column;
+                    justify-content: space-between;
+                    box-sizing: border-box;
+                    text-align: center;
+                }
+
+                .poem-column-empty {
+                    width: 100%;
+                    height: 100%;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    border: 1px dashed rgba(212, 160, 23, 0.3);
+                    border-radius: 10px;
+                    background: rgba(255, 255, 255, 0.2);
+                }
+                .empty-column-motif {
+                    color: rgba(184, 134, 11, 0.3);
+                    font-size: 20px;
+                    letter-spacing: 4px;
+                }
+
+                /* ================= SPANNING POEM CONTAINER (FULL PAGE 2-COLUMN FLOW) ================= */
+                .spanning-poem-container {
+                    width: 100%;
+                    flex-grow: 1;
+                    display: flex;
+                    min-height: 0;
+                    margin-bottom: 8px;
+                    box-sizing: border-box;
+                }
+                .spanning-card {
+                    width: 100%;
+                    border: 1.5px solid rgba(212, 160, 23, 0.55);
+                    border-radius: 12px;
+                    background: rgba(255, 255, 255, 0.7);
+                    padding: 18px 24px;
+                }
+                .spanning-poem-body {
+                    column-count: 2 !important;
+                    column-gap: 36px !important;
+                    column-rule: 1px solid rgba(212, 160, 23, 0.35) !important;
+                    text-align: center !important;
+                    flex-grow: 1;
+                }
+
+                /* ================= SINGLE NOTE CONTAINER ================= */
+                .single-poem-container {
+                    width: 100%;
+                    max-width: 780px;
+                    margin: 0 auto;
+                    flex-grow: 1;
+                    display: flex;
+                    min-height: 0;
+                    margin-bottom: 8px;
+                    box-sizing: border-box;
+                }
+                .single-card {
+                    width: 100%;
+                    border: 1.5px solid rgba(212, 160, 23, 0.55);
+                    border-radius: 12px;
+                    background: rgba(255, 255, 255, 0.7);
+                    padding: 20px 28px;
+                }
+
+                /* ================= POEM TYPOGRAPHY (ALL CENTER ALIGNED) ================= */
+                .poem-header {
+                    width: 100%;
+                    margin-bottom: 8px;
+                    text-align: center !important;
+                    box-sizing: border-box;
+                }
+                .poem-title {
+                    width: 100%;
+                    font-size: 20px;
+                    margin: 0 0 4px 0;
+                    font-weight: bold;
+                    line-height: 1.3;
+                    text-align: center !important;
+                    box-sizing: border-box;
+                    word-wrap: break-word;
+                    overflow-wrap: break-word;
+                }
+                .spanning-card .poem-title, .single-card .poem-title {
+                    font-size: 24px;
+                }
+                .poem-divider {
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    margin: 4px 0 6px 0;
+                    width: 100%;
+                }
+                .poem-divider-line {
+                    height: 1px;
+                    width: 40px;
+                    background-color: #D4A017;
+                    opacity: 0.6;
+                }
+                .poem-symbol {
+                    color: #B8860B;
+                    font-size: 11px;
+                    margin: 0 6px;
+                }
+                .poem-meta {
+                    width: 100%;
+                    font-size: 10px;
+                    color: #7A7A8E;
+                    font-style: italic;
+                    text-align: center !important;
+                    box-sizing: border-box;
+                }
+
+                /* Poem Body (Center-Aligned) */
+                .poem-body {
+                    width: 100%;
+                    box-sizing: border-box;
+                    display: block;
+                    white-space: pre-wrap;
+                    word-wrap: break-word;
+                    overflow-wrap: break-word;
+                    word-break: normal;
+                    text-align: center !important;
+                    padding-bottom: 4px;
+                    margin: auto 0;
+                }
+
+                /* Author Section (Center-Aligned) */
+                .poem-author-section {
+                    width: 100%;
+                    margin-top: 8px;
+                    margin-bottom: 4px;
+                    text-align: center !important;
+                    box-sizing: border-box;
+                    page-break-inside: avoid !important;
+                    break-inside: avoid !important;
+                }
+                .author-divider-line {
+                    height: 1px;
+                    width: 30%;
+                    max-width: 140px;
+                    min-width: 60px;
+                    background-color: #D4A017;
+                    opacity: 0.45;
+                    margin: 0 auto 6px auto !important;
+                }
+                .author-signature-text {
+                    font-size: 10.5pt;
+                    font-style: italic;
+                    font-weight: 500;
+                    color: #6C6C7E;
+                    line-height: 1.4;
+                    text-align: center !important;
+                    word-wrap: break-word;
+                    overflow-wrap: break-word;
+                }
+
+                /* Full-width Bottom Footer */
+                .page-bottom-footer {
+                    width: 100%;
+                    margin-top: auto;
+                    box-sizing: border-box;
+                }
+                .footer-divider {
+                    height: 1px;
+                    background: linear-gradient(to right, transparent, #E2DDD0 15%, #E2DDD0 85%, transparent);
+                    margin-bottom: 6px;
+                }
+                .footer-row {
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: center;
+                    font-size: 11px;
+                    color: #8C8C9E;
+                    width: 100%;
+                }
+                .footer-page-num {
+                    font-weight: bold;
+                    color: #B8860B;
+                }
+
+                /* ================= COVER PAGE STYLES (LANDSCAPE) ================= */
                 .cover-page {
-                    width: 794px;
-                    min-height: 1123px;
-                    padding: 40px;
+                    width: 1123px;
+                    height: 794px;
+                    min-height: 794px;
+                    padding: 28px 40px;
                     background-color: #FAF9F4;
                     display: flex;
                     align-items: center;
@@ -413,18 +1025,17 @@ object PdfExportHelper {
                 }
                 .cover-border {
                     border: 2px solid #D4A017;
-                    padding: 10px;
+                    padding: 8px;
                     width: 100%;
                     height: 100%;
-                    min-height: 1023px;
                     box-sizing: border-box;
                 }
                 .cover-inner-border {
                     border: 1px dashed #B8860B;
-                    padding: 50px 40px;
+                    padding: 25px 35px;
                     width: 100%;
                     height: 100%;
-                    min-height: 1000px;
+                    position: relative;
                     display: flex;
                     flex-direction: column;
                     align-items: center;
@@ -435,61 +1046,68 @@ object PdfExportHelper {
                 }
                 .cover-top-ornament, .cover-bottom-ornament {
                     color: #B8860B;
-                    font-size: 18px;
+                    font-size: 16px;
                     letter-spacing: 4px;
-                    margin: 20px 0;
+                    margin: 8px 0;
                 }
                 .cover-badge {
-                    width: 60px;
-                    height: 60px;
+                    width: 50px;
+                    height: 50px;
                     border-radius: 50%;
                     background-color: #F3ECE0;
                     border: 1.5px solid #D4A017;
                     display: flex;
                     align-items: center;
                     justify-content: center;
-                    margin-bottom: 25px;
+                    margin-bottom: 12px;
                 }
                 .cover-icon {
-                    font-size: 30px;
+                    font-size: 24px;
                     color: #B8860B;
                 }
                 .cover-title {
-                    font-size: 36px;
+                    font-size: 34px;
                     color: #B8860B;
                     font-family: 'anupam_mahdi', serif;
-                    margin: 0 0 12px 0;
-                    line-height: 1.3;
+                    margin: 0 0 6px 0;
+                    line-height: 1.25;
                 }
                 .cover-subtitle {
-                    font-size: 18px;
+                    font-size: 16px;
                     color: #665A48;
                     font-style: italic;
-                    margin-bottom: 30px;
+                    margin-bottom: 14px;
                 }
                 .cover-divider {
                     color: #D4A017;
-                    font-size: 18px;
-                    margin-bottom: 40px;
+                    font-size: 16px;
+                    margin-bottom: 16px;
                 }
                 .cover-info {
-                    margin-bottom: 60px;
+                    margin-bottom: 20px;
                 }
                 .cover-info-label {
-                    font-size: 16px;
+                    font-size: 15px;
                     font-weight: bold;
                     color: #2C2C3A;
-                    margin-bottom: 10px;
+                    margin-bottom: 6px;
                     letter-spacing: 0.5px;
                 }
                 .cover-date {
                     font-size: 13px;
                     color: #6C6C7E;
-                    margin-bottom: 6px;
+                    margin-bottom: 4px;
                 }
                 .cover-count {
                     font-size: 13px;
                     color: #8A8A9B;
+                    margin-bottom: 4px;
+                }
+                .cover-author {
+                    font-size: 13px;
+                    color: #7A7A8E;
+                    font-style: italic;
+                    margin-top: 5px;
                 }
                 .cover-footer-text {
                     font-size: 12px;
@@ -498,66 +1116,68 @@ object PdfExportHelper {
                     margin-top: auto;
                 }
 
-                /* ================= TABLE OF CONTENTS STYLES ================= */
-                .toc-page {
-                    width: 794px;
-                    padding: 60px 70px;
-                    min-height: 1123px;
-                    background-color: #FAF9F4;
-                    position: relative;
-                    box-sizing: border-box;
-                }
-                .toc-container {
+                /* ================= TABLE OF CONTENTS STYLES (LANDSCAPE) ================= */
+                .toc-content-wrapper {
                     width: 100%;
+                    flex-grow: 1;
+                    display: flex;
+                    flex-direction: column;
                     box-sizing: border-box;
+                    padding: 10px 20px 0 20px;
                 }
                 .toc-header {
                     text-align: center;
-                    margin-bottom: 40px;
+                    margin-bottom: 20px;
                 }
                 .toc-ornament {
                     color: #B8860B;
-                    font-size: 18px;
-                    margin-bottom: 8px;
+                    font-size: 16px;
+                    margin-bottom: 4px;
                 }
                 .toc-title {
-                    font-size: 30px;
+                    font-size: 28px;
                     color: #B8860B;
-                    margin: 0 0 6px 0;
+                    margin: 0 0 4px 0;
                     font-family: 'anupam_mahdi', serif;
                 }
                 .toc-subtitle {
                     font-size: 13px;
                     color: #7A7A8E;
                     font-style: italic;
-                    margin-bottom: 15px;
+                    margin-bottom: 10px;
                 }
                 .toc-line {
                     height: 1.5px;
                     background: linear-gradient(to right, transparent, #D4A017, transparent);
-                    width: 60%;
+                    width: 35%;
                     margin: 0 auto;
                 }
-                .toc-list {
-                    margin-bottom: 50px;
+                .toc-grid {
+                    display: grid;
+                    grid-template-columns: 1fr 1fr;
+                    gap: 14px 60px;
                     width: 100%;
+                    flex-grow: 1;
+                    align-content: start;
                 }
                 .toc-item {
                     display: flex;
                     align-items: baseline;
-                    margin-bottom: 14px;
-                    font-size: 15px;
+                    font-size: 14px;
                     width: 100%;
                 }
                 .toc-item-title {
                     color: #2C2C3A;
                     font-weight: 500;
                     white-space: nowrap;
+                    overflow: hidden;
+                    text-overflow: ellipsis;
+                    max-width: 320px;
                 }
                 .toc-leader {
                     flex-grow: 1;
                     border-bottom: 1px dotted #C8C4B7;
-                    margin: 0 10px;
+                    margin: 0 8px;
                     height: 1em;
                 }
                 .toc-item-page {
@@ -565,147 +1185,13 @@ object PdfExportHelper {
                     font-weight: bold;
                     white-space: nowrap;
                 }
-                .toc-footer {
-                    position: absolute;
-                    bottom: 40px;
-                    left: 70px;
-                    right: 70px;
-                    text-align: center;
-                    font-size: 12px;
-                    color: #8C8C9E;
-                    border-top: 1px solid #E5E0D3;
-                    padding-top: 10px;
-                    box-sizing: border-box;
-                }
 
-                /* ================= POEM PAGE STYLES ================= */
-                .note-page {
-                    width: 794px;
-                    padding: 40px 55px 45px 55px;
-                    min-height: 1123px;
-                    position: relative;
-                    background-color: #FAF9F4;
-                    box-sizing: border-box;
-                }
-                .page-top-ornament {
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                    margin-bottom: 16px;
-                    width: 100%;
-                }
-                .top-line {
-                    height: 1px;
-                    width: 70px;
-                    background-color: #D4A017;
-                    opacity: 0.5;
-                }
-                .top-symbol {
-                    color: #B8860B;
-                    font-size: 11px;
-                    margin: 0 10px;
-                }
-                .poem-header {
-                    width: 100%;
-                    margin-bottom: 16px;
-                    box-sizing: border-box;
-                }
-                .poem-title {
-                    width: 100%;
-                    font-size: 28px;
-                    margin: 0 0 8px 0;
-                    font-weight: bold;
-                    line-height: 1.35;
-                    box-sizing: border-box;
-                    word-wrap: break-word;
-                    overflow-wrap: break-word;
-                    word-break: normal;
-                }
-                .poem-divider {
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                    margin: 8px 0 10px 0;
-                    width: 100%;
-                }
-                .poem-divider-line {
-                    height: 1px;
-                    width: 50px;
-                    background-color: #D4A017;
-                    opacity: 0.6;
-                }
-                .poem-symbol {
-                    color: #B8860B;
-                    font-size: 13px;
-                    margin: 0 8px;
-                }
-                .poem-meta {
-                    width: 100%;
-                    font-size: 11px;
-                    color: #7A7A8E;
-                    font-style: italic;
-                    box-sizing: border-box;
-                }
-                .poem-body {
-                    width: 100%;
-                    box-sizing: border-box;
-                    display: block;
-                    white-space: pre-wrap;
-                    word-wrap: break-word;
-                    overflow-wrap: break-word;
-                    word-break: normal;
-                    padding-bottom: 10px;
-                }
-                .poem-author-section {
-                    width: 100%;
-                    margin-top: 18px;
-                    margin-bottom: 35px;
-                    box-sizing: border-box;
-                    page-break-inside: avoid !important;
-                    break-inside: avoid !important;
-                }
-                .author-divider-line {
-                    height: 1px;
-                    width: 25%;
-                    max-width: 160px;
-                    min-width: 80px;
-                    background-color: #D4A017;
-                    opacity: 0.45;
-                }
-                .author-signature-text {
-                    font-size: 11pt;
-                    font-style: italic;
-                    font-weight: 500;
-                    color: #6C6C7E;
-                    line-height: 1.45;
-                    word-wrap: break-word;
-                    overflow-wrap: break-word;
-                }
-                .page-bottom-footer {
-                    position: absolute;
-                    bottom: 25px;
-                    left: 55px;
-                    right: 55px;
-                    box-sizing: border-box;
-                }
-                .footer-divider {
-                    height: 1px;
-                    background-color: #E2DDD0;
-                    margin-bottom: 10px;
-                }
-                .footer-row {
-                    display: flex;
-                    justify-content: space-between;
-                    font-size: 12px;
-                    color: #8C8C9E;
-                    width: 100%;
-                }
-
-                /* ================= END PAGE STYLES ================= */
+                /* ================= ENDING PAGE STYLES (LANDSCAPE) ================= */
                 .end-page {
-                    width: 794px;
-                    min-height: 1123px;
-                    padding: 60px;
+                    width: 1123px;
+                    height: 794px;
+                    min-height: 794px;
+                    padding: 35px 50px;
                     display: flex;
                     align-items: center;
                     justify-content: center;
@@ -713,30 +1199,52 @@ object PdfExportHelper {
                     background-color: #FAF9F4;
                     box-sizing: border-box;
                 }
-                .end-container {
-                    margin: auto;
+                .end-border {
+                    border: 2px solid #D4A017;
+                    padding: 8px;
                     width: 100%;
+                    height: 100%;
+                    box-sizing: border-box;
+                }
+                .end-inner-border {
+                    border: 1px dashed #B8860B;
+                    padding: 40px;
+                    width: 100%;
+                    height: 100%;
+                    position: relative;
+                    display: flex;
+                    flex-direction: column;
+                    align-items: center;
+                    justify-content: center;
+                    background: radial-gradient(circle at center, #FFFDF8 0%, #FAF9F4 100%);
+                    box-sizing: border-box;
                 }
                 .end-symbol {
                     color: #B8860B;
-                    font-size: 22px;
-                    margin-bottom: 15px;
+                    font-size: 20px;
+                    margin-bottom: 12px;
                 }
                 .end-title {
-                    font-size: 28px;
+                    font-size: 26px;
                     color: #B8860B;
                     font-family: 'anupam_mahdi', serif;
-                    margin: 0 0 12px 0;
+                    margin: 0 0 10px 0;
                 }
                 .end-line {
                     height: 1.5px;
-                    width: 100px;
+                    width: 90px;
                     background-color: #D4A017;
-                    margin: 0 auto 18px auto;
+                    margin: 0 auto 16px auto;
                 }
                 .end-text {
                     font-size: 13px;
                     color: #7A7A8E;
+                    font-style: italic;
+                    margin-bottom: 6px;
+                }
+                .end-author {
+                    font-size: 12px;
+                    color: #8C8C9E;
                     font-style: italic;
                 }
             </style>
@@ -744,7 +1252,7 @@ object PdfExportHelper {
         <body>
             $coverPageHtml
             $tocPageHtml
-            $notesHtml
+            $pagesHtml
             $endPageHtml
         </body>
         </html>
