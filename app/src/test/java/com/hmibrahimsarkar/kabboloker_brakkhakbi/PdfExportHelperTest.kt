@@ -53,6 +53,48 @@ class PdfExportHelperTest {
     }
 
     @Test
+    fun testCoverAndEndingPageSingleColumnCenteredFrame() {
+        val notes = listOf(
+            createDummyNote(1, "প্রথম কবিতা", "লাইন এক\nলাইন দুই"),
+            createDummyNote(2, "দ্বিতীয় কবিতা", "লাইন তিন\nলাইন চার")
+        )
+        val html = PdfExportHelper.buildHtmlForNotes(notes, isSingleNote = false)
+
+        // Cover page centered column frame
+        assertTrue(html.contains("cover-column-card"))
+        assertTrue(html.contains("width: 530px;"))
+
+        // Ending page centered column frame
+        assertTrue(html.contains("end-column-card"))
+
+        // Table of contents centered single list
+        assertTrue(html.contains("toc-centered-container"))
+        assertTrue(html.contains("toc-single-list"))
+    }
+
+    @Test
+    fun testTableOfContentsStrictSerialOrderAndAccuratePageNumbers() {
+        // 10 notes: note 1 (short -> page 1), note 2 (long -> page 2 & 3), note 3 (short -> page 4), note 4 (short -> page 5)
+        val note1 = createDummyNote(1, "কবিতা ১", "ছোট কবিতা ১")
+        val longLines = (1..20).joinToString("\n") { "চরণ $it" }
+        val note2 = createDummyNote(2, "কবিতা ২", longLines)
+        val note3 = createDummyNote(3, "কবিতা ৩", "ছোট কবিতা ৩")
+        val note4 = createDummyNote(4, "কবিতা ৪", "ছোট কবিতা ৪")
+
+        val html = PdfExportHelper.buildHtmlForNotes(listOf(note1, note2, note3, note4), isSingleNote = false)
+
+        // TOC must contain serial order ১. কবিতা ১ -> পাতা ১, ২. কবিতা ২ -> পাতা ২, ৩. কবিতা ৩ -> পাতা ৪, ৪. কবিতা ৪ -> পাতা ৫
+        assertTrue(html.contains("১. কবিতা ১"))
+        assertTrue(html.contains("২. কবিতা ২"))
+        assertTrue(html.contains("৩. কবিতা ৩"))
+        assertTrue(html.contains("৪. কবিতা ৪"))
+
+        // Assert single-list layout is used rather than grid
+        assertTrue(html.contains("toc-single-list"))
+        assertFalse(html.contains("toc-grid"))
+    }
+
+    @Test
     fun testEvenNotesTwoColumnPairing() {
         // 8 notes -> should create cover, TOC, 4 two-column pages, end page
         val notes = (1..8).map { i ->
@@ -79,9 +121,23 @@ class PdfExportHelperTest {
         }
         val html = PdfExportHelper.buildHtmlForNotes(notes, isSingleNote = false)
 
-        assertTrue(html.contains("poem-column-empty"))
+        assertTrue(html.contains("column-leaf-empty"))
         assertTrue(html.contains("মোট কবিতা: ৭ টি"))
         assertTrue(html.contains("কবিতা ৭"))
+    }
+
+    @Test
+    fun testLongPoemSpanningOver15Lines() {
+        val longPoemLines = (1..20).joinToString("\n") { "চরণ নম্বর ${PdfExportHelper.toBengaliNumerals(it)}" }
+        val shortPoem = createDummyNote(1, "ছোট কবিতা", "ছোট দুই লাইন\nদ্বিতীয় লাইন")
+        val longPoem = createDummyNote(2, "বড় কবিতা", longPoemLines)
+
+        val html = PdfExportHelper.buildHtmlForNotes(listOf(shortPoem, longPoem), isSingleNote = false)
+
+        assertTrue(html.contains("spanning-poem-container"))
+        assertTrue(html.contains("fullwidth-poem-header"))
+        assertTrue(html.contains("spread-gutter-divider"))
+        assertTrue(html.contains("spanning-leaf-footer"))
     }
 
     @Test
