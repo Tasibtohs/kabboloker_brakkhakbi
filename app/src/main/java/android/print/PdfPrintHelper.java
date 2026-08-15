@@ -32,7 +32,7 @@ public class PdfPrintHelper {
             );
 
             PrintAttributes printAttributes = new PrintAttributes.Builder()
-                    .setMediaSize(PrintAttributes.MediaSize.ISO_A4)
+                    .setMediaSize(PrintAttributes.MediaSize.ISO_A4.asLandscape())
                     .setResolution(new PrintAttributes.Resolution("pdf", "pdf", 300, 300))
                     .setMinMargins(new PrintAttributes.Margins(0, 0, 0, 0))
                     .build();
