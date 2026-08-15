@@ -141,17 +141,40 @@ class PdfExportHelperTest {
     }
 
     @Test
-    fun testSingleNoteLandscapeExport() {
+    fun testSingleNoteLandscapeExportUnder24Lines() {
         val notes = listOf(
-            createDummyNote(1, "একক কবিতা", "এটি একটি একক কবিতা যা ল্যান্ডস্কেপ মোডে প্রকাশিত হবে।")
+            createDummyNote(1, "একক কবিতা", "এটি একটি একক কবিতা যা ল্যান্ডস্কেপ মোডে প্রকাশিত হবে।\nদ্বিতীয় চরণ।")
         )
         val html = PdfExportHelper.buildHtmlForNotes(notes, isSingleNote = true)
 
         assertFalse(html.contains("<div class=\"cover-page"))
         assertFalse(html.contains("landscape-page toc-page"))
+        assertFalse(html.contains("<div class=\"end-page"))
         assertTrue(html.contains("single-note-page"))
-        assertTrue(html.contains("single-poem-container"))
+        assertTrue(html.contains("single-note-outer-container"))
+        assertTrue(html.contains("single-note-unified-frame"))
+        assertTrue(html.contains("single-export-header"))
+        assertTrue(html.contains("class=\"single-note-col single-note-empty-col\""))
         assertTrue(html.contains("একক কবিতা"))
+    }
+
+    @Test
+    fun testSingleNoteLandscapeExportOver24Lines() {
+        val thirtyLines = (1..30).joinToString("\n") { "পঙ্ক্তি নম্বর ${PdfExportHelper.toBengaliNumerals(it)}" }
+        val note = createDummyNote(1, "দীর্ঘ একক কবিতা", thirtyLines)
+        val html = PdfExportHelper.buildHtmlForNotes(listOf(note), isSingleNote = true)
+
+        assertTrue(html.contains("single-note-page"))
+        assertTrue(html.contains("single-note-outer-container"))
+        assertTrue(html.contains("single-note-unified-frame"))
+        assertTrue(html.contains("single-export-header"))
+        assertTrue(html.contains("single-note-left-col"))
+        assertTrue(html.contains("single-note-right-col"))
+        assertTrue(html.contains("spread-gutter-divider"))
+        assertFalse(html.contains("class=\"single-note-col single-note-empty-col\""))
+        assertTrue(html.contains("দীর্ঘ একক কবিতা"))
+        assertTrue(html.contains("পঙ্ক্তি নম্বর ১"))
+        assertTrue(html.contains("পঙ্ক্তি নম্বর ২৫"))
     }
 
     @Test
