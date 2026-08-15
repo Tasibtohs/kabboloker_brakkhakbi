@@ -169,7 +169,7 @@ object PdfExportHelper {
         ) : PdfPageItem()
 
         /**
-         * A single poem spanning both columns (> 15 lines)
+         * A single poem spanning both columns (> 15 lines for multi-note booklet)
          * leftContent: First column text
          * rightContent: Second column text (remaining lines)
          */
@@ -182,18 +182,20 @@ object PdfExportHelper {
         ) : PdfPageItem()
 
         /**
-         * Standalone single note export
+         * Standalone single note export:
+         * If <= 24 lines: fits completely in Column 1, right column is empty/unused. Title in Column 1.
+         * If > 24 lines: exactly first 24 lines in Column 1, line 25+ in Column 2. Title still in Column 1.
          */
-        data class SingleNoteExport(
+        data class SingleNoteStandalone(
             val note: NoteEntity,
-            val isSpanning: Boolean,
-            val leftContent: String = "",
-            val rightContent: String = ""
+            val isOverflowing: Boolean,
+            val leftLines: String,
+            val rightLines: String
         ) : PdfPageItem()
     }
 
     /**
-     * Determines whether a poem is long (> 15 lines or > 400 chars)
+     * Determines whether a poem is long (> 15 lines or > 400 chars) for multi-note booklet export.
      */
     fun isLongPoem(note: NoteEntity): Boolean {
         val lines = note.content.lines()
@@ -203,16 +205,21 @@ object PdfExportHelper {
     }
 
     /**
-     * Splits a long poem's lines sequentially so column 1 is filled completely
+     * Determines whether a poem exceeds 24 lines for single note export.
+     */
+    fun isSingleNoteOverflowing(note: NoteEntity): Boolean {
+        val lines = note.content.lines()
+        return lines.size > 24
+    }
+
+    /**
+     * Splits a long poem's lines sequentially for multi-note collection so column 1 is filled completely
      * to capacity before flowing to column 2.
-     * In A4 landscape with header, a column comfortably holds 16-22 lines.
      */
     private fun splitPoemIntoTwoColumns(content: String): Pair<String, String> {
         val lines = content.lines()
         val lineCount = lines.size
 
-        // Calculate capacity for column 1:
-        // Fill column 1 with up to 18-22 lines (or ceiling(lineCount/2) if around 16-24 lines)
         val col1Limit = when {
             lineCount <= 22 -> (lineCount + 1) / 2
             lineCount <= 34 -> (lineCount + 1) / 2
@@ -223,6 +230,21 @@ object PdfExportHelper {
         val col1Lines = lines.take(col1Limit)
         val col2Lines = lines.drop(col1Limit)
 
+        return Pair(col1Lines.joinToString("\n"), col2Lines.joinToString("\n"))
+    }
+
+    /**
+     * Splits a single note for standalone export:
+     * - Exactly first 24 lines in Column 1
+     * - 25th line onwards in Column 2
+     */
+    private fun splitSingleNoteBy24Lines(content: String): Pair<String, String> {
+        val lines = content.lines()
+        if (lines.size <= 24) {
+            return Pair(content, "")
+        }
+        val col1Lines = lines.take(24)
+        val col2Lines = lines.drop(24)
         return Pair(col1Lines.joinToString("\n"), col2Lines.joinToString("\n"))
     }
 
@@ -365,19 +387,25 @@ object PdfExportHelper {
         if (isSingleNote) {
             if (notes.isNotEmpty()) {
                 val note = notes.first()
-                if (isLongPoem(note)) {
-                    val (col1, col2) = splitPoemIntoTwoColumns(note.content)
+                if (isSingleNoteOverflowing(note)) {
+                    val (col1, col2) = splitSingleNoteBy24Lines(note.content)
                     pageItems.add(
-                        PdfPageItem.SpanningPoemSpread(
+                        PdfPageItem.SingleNoteStandalone(
                             note = note,
-                            leftContent = col1,
-                            rightContent = col2,
-                            leftPageNum = 1,
-                            rightPageNum = 2
+                            isOverflowing = true,
+                            leftLines = col1,
+                            rightLines = col2
                         )
                     )
                 } else {
-                    pageItems.add(PdfPageItem.SingleNoteExport(note, isSpanning = false))
+                    pageItems.add(
+                        PdfPageItem.SingleNoteStandalone(
+                            note = note,
+                            isOverflowing = false,
+                            leftLines = note.content,
+                            rightLines = ""
+                        )
+                    )
                 }
             }
         } else {
@@ -771,12 +799,16 @@ object PdfExportHelper {
                     """.trimIndent()
                 }
 
-                is PdfPageItem.SingleNoteExport -> {
+                is PdfPageItem.SingleNoteStandalone -> {
                     val note = pageItem.note
-                    val fullWidthHeaderHtml = renderFullWidthHeader(note)
+                    val title = if (note.title.isNotBlank()) note.title else "শিরোনামহীন কবিতা"
+                    val noteDate = SimpleDateFormat("dd MMMM, yyyy • hh:mm a", Locale("bn", "BD")).format(Date(note.createdAt))
+                    val updatedDate = SimpleDateFormat("dd MMMM, yyyy • hh:mm a", Locale("bn", "BD")).format(Date(note.updatedAt))
 
                     val fontOption = BengaliFonts.getFontByKey(note.fontFamilyKey)
                     val fontCssFamily = "'${fontOption.key}', 'Tiro Bangla', serif, sans-serif"
+
+                    val readableTitleColor = ensureReadableTextColor(note.titleColorHex, defaultColorHex = "#B8860B")
                     val readableTextColor = ensureReadableTextColor(note.textColorHex, defaultColorHex = "#2C2C3A")
 
                     val textDecorations = mutableListOf<String>()
@@ -787,9 +819,86 @@ object PdfExportHelper {
                     val fontWeight = if (note.isBold) "bold" else "normal"
                     val fontStyle = if (note.isItalic) "italic" else "normal"
 
-                    val (fontSizePx, lineHeightRatio) = calculateSingleNoteTypography(note.content, note.fontSizeSp, note.lineSpacingMultiplier)
-                    val safeContent = escapeHtml(note.content)
+                    val (fontSizePx, lineHeightRatio) = calculateColumnTypography(note.content, note.fontSizeSp, note.lineSpacingMultiplier)
+
+                    val safeTitle = escapeHtml(title)
+                    val leftLinesHtml = escapeHtml(pageItem.leftLines)
+                    val rightLinesHtml = escapeHtml(pageItem.rightLines)
                     val authorHtml = renderAuthorSignature(fontCssFamily)
+
+                    val headerHtml = """
+                    <div class="single-export-header">
+                        <h2 class="single-export-title" style="color: $readableTitleColor; font-family: $fontCssFamily;">$safeTitle</h2>
+                        <div class="leaf-divider">
+                            <span class="leaf-divider-line"></span>
+                            <span class="leaf-symbol">❦</span>
+                            <span class="leaf-divider-line"></span>
+                        </div>
+                        <div class="leaf-meta">
+                            <span>রচনাকাল: $noteDate</span>
+                            ${if (note.updatedAt > note.createdAt + 60000) " • <span>সম্পাদিত: $updatedDate</span>" else ""}
+                        </div>
+                    </div>
+                    """.trimIndent()
+
+                    val bodyContentHtml = if (pageItem.isOverflowing) {
+                        """
+                        <div class="single-note-columns-wrapper">
+                            <!-- Column 1: Header + First 24 Lines -->
+                            <div class="single-note-col single-note-left-col">
+                                $headerHtml
+                                <div class="single-note-col-body" style="
+                                    color: $readableTextColor;
+                                    font-size: ${fontSizePx}px;
+                                    font-weight: $fontWeight;
+                                    font-style: $fontStyle;
+                                    text-decoration: $textDecorationCss;
+                                    line-height: $lineHeightRatio;
+                                    font-family: $fontCssFamily;
+                                ">$leftLinesHtml</div>
+                            </div>
+
+                            <!-- Divider between Column 1 & Overflow Column 2 -->
+                            <div class="spread-gutter-divider"></div>
+
+                            <!-- Column 2: 25th Line Onwards + Author Signature -->
+                            <div class="single-note-col single-note-right-col">
+                                <div class="single-note-col-body" style="
+                                    color: $readableTextColor;
+                                    font-size: ${fontSizePx}px;
+                                    font-weight: $fontWeight;
+                                    font-style: $fontStyle;
+                                    text-decoration: $textDecorationCss;
+                                    line-height: $lineHeightRatio;
+                                    font-family: $fontCssFamily;
+                                ">$rightLinesHtml</div>
+                                $authorHtml
+                            </div>
+                        </div>
+                        """.trimIndent()
+                    } else {
+                        """
+                        <div class="single-note-columns-wrapper">
+                            <!-- Column 1: Header + Entire Poem (<= 24 lines) + Author Signature -->
+                            <div class="single-note-col single-note-left-col">
+                                $headerHtml
+                                <div class="single-note-col-body" style="
+                                    color: $readableTextColor;
+                                    font-size: ${fontSizePx}px;
+                                    font-weight: $fontWeight;
+                                    font-style: $fontStyle;
+                                    text-decoration: $textDecorationCss;
+                                    line-height: $lineHeightRatio;
+                                    font-family: $fontCssFamily;
+                                ">$leftLinesHtml</div>
+                                $authorHtml
+                            </div>
+
+                            <!-- Empty Column 2 slot to preserve layout balance -->
+                            <div class="single-note-col single-note-empty-col"></div>
+                        </div>
+                        """.trimIndent()
+                    }
 
                     """
                     <div class="landscape-page single-note-page $pageBreakClass">
@@ -808,20 +917,10 @@ object PdfExportHelper {
                                 </div>
                                 <div class="header-divider-line"></div>
 
-                                <!-- Single Poem Centered Container -->
-                                <div class="single-poem-container">
-                                    <div class="poem-card single-card">
-                                        $fullWidthHeaderHtml
-                                        <div class="single-poem-body" style="
-                                            color: $readableTextColor;
-                                            font-size: ${fontSizePx}px;
-                                            font-weight: $fontWeight;
-                                            font-style: $fontStyle;
-                                            text-decoration: $textDecorationCss;
-                                            line-height: $lineHeightRatio;
-                                            font-family: $fontCssFamily;
-                                        ">$safeContent</div>
-                                        $authorHtml
+                                <!-- Unified Outer Frame for Single Note -->
+                                <div class="single-note-outer-container">
+                                    <div class="single-note-unified-frame">
+                                        $bodyContentHtml
                                     </div>
                                 </div>
                             </div>
@@ -1169,30 +1268,77 @@ object PdfExportHelper {
                     flex-grow: 1;
                 }
 
-                /* ================= SINGLE NOTE CONTAINER ================= */
-                .single-poem-container {
+                /* ================= SINGLE NOTE CONTAINER & STYLING ================= */
+                .single-note-outer-container {
                     width: 100%;
-                    max-width: 780px;
-                    margin: 0 auto;
                     flex-grow: 1;
                     display: flex;
                     min-height: 0;
-                    margin-bottom: 8px;
+                    margin-bottom: 4px;
                     box-sizing: border-box;
                 }
-                .single-card {
+                .single-note-unified-frame {
                     width: 100%;
                     border: 1.5px solid rgba(212, 160, 23, 0.55);
                     border-radius: 12px;
                     background: rgba(255, 255, 255, 0.7);
-                    padding: 20px 28px;
+                    padding: 14px 20px 8px 20px;
                     display: flex;
                     flex-direction: column;
                     justify-content: space-between;
                     box-sizing: border-box;
-                    text-align: center;
                 }
-                .single-poem-body {
+                .single-note-columns-wrapper {
+                    display: flex;
+                    flex-direction: row;
+                    justify-content: space-between;
+                    align-items: stretch;
+                    width: 100%;
+                    flex-grow: 1;
+                    min-height: 0;
+                    box-sizing: border-box;
+                }
+                .single-note-col {
+                    flex: 1;
+                    display: flex;
+                    flex-direction: column;
+                    justify-content: space-between;
+                    padding: 0 16px;
+                    box-sizing: border-box;
+                    min-height: 0;
+                }
+                .single-note-left-col {
+                    display: flex;
+                    flex-direction: column;
+                    justify-content: space-between;
+                }
+                .single-note-right-col {
+                    display: flex;
+                    flex-direction: column;
+                    justify-content: space-between;
+                }
+                .single-note-empty-col {
+                    /* Left intentionally blank when poem <= 24 lines */
+                    visibility: hidden;
+                }
+                .single-export-header {
+                    width: 100%;
+                    margin-bottom: 8px;
+                    text-align: center !important;
+                    box-sizing: border-box;
+                }
+                .single-export-title {
+                    width: 100%;
+                    font-size: 20px;
+                    margin: 0 0 4px 0;
+                    font-weight: bold;
+                    line-height: 1.3;
+                    text-align: center !important;
+                    box-sizing: border-box;
+                    word-wrap: break-word;
+                    overflow-wrap: break-word;
+                }
+                .single-note-col-body {
                     width: 100%;
                     box-sizing: border-box;
                     display: block;
