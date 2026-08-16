@@ -60,23 +60,29 @@ class PdfExportHelperTest {
         )
         val html = PdfExportHelper.buildHtmlForNotes(notes, isSingleNote = false)
 
-        // Cover page centered column frame
-        assertTrue(html.contains("cover-column-card"))
-        assertTrue(html.contains("width: 530px;"))
+        // Cover page 1 column content + 1 column empty
+        assertTrue(html.contains("cover-columns-container"))
+        assertTrue(html.contains("cover-left-slot"))
+        assertTrue(html.contains("cover-right-empty-slot"))
+        assertTrue(html.contains("cover-card"))
 
-        // Ending page centered column frame
-        assertTrue(html.contains("end-column-card"))
+        // Ending page 1 column content + 1 column empty
+        assertTrue(html.contains("end-columns-container"))
+        assertTrue(html.contains("end-left-slot"))
+        assertTrue(html.contains("end-right-empty-slot"))
+        assertTrue(html.contains("end-card"))
 
-        // Table of contents centered single list
-        assertTrue(html.contains("toc-centered-container"))
-        assertTrue(html.contains("toc-single-list"))
+        // Table of contents 2-column continuous serial flow
+        assertTrue(html.contains("toc-columns-container"))
+        assertTrue(html.contains("toc-col toc-left-col"))
+        assertTrue(html.contains("toc-col toc-right-col"))
     }
 
     @Test
     fun testTableOfContentsStrictSerialOrderAndAccuratePageNumbers() {
-        // 10 notes: note 1 (short -> page 1), note 2 (long -> page 2 & 3), note 3 (short -> page 4), note 4 (short -> page 5)
+        // 4 notes: note 1 (short -> page 1), note 2 (long >35 lines -> page 2 & 3), note 3 (short -> page 4), note 4 (short -> page 5)
         val note1 = createDummyNote(1, "কবিতা ১", "ছোট কবিতা ১")
-        val longLines = (1..20).joinToString("\n") { "চরণ $it" }
+        val longLines = (1..40).joinToString("\n") { "চরণ $it" }
         val note2 = createDummyNote(2, "কবিতা ২", longLines)
         val note3 = createDummyNote(3, "কবিতা ৩", "ছোট কবিতা ৩")
         val note4 = createDummyNote(4, "কবিতা ৪", "ছোট কবিতা ৪")
@@ -89,9 +95,9 @@ class PdfExportHelperTest {
         assertTrue(html.contains("৩. কবিতা ৩"))
         assertTrue(html.contains("৪. কবিতা ৪"))
 
-        // Assert single-list layout is used rather than grid
-        assertTrue(html.contains("toc-single-list"))
-        assertFalse(html.contains("toc-grid"))
+        // Assert 2-column sequential flow
+        assertTrue(html.contains("toc-columns-container"))
+        assertTrue(html.contains("toc-gutter-divider"))
     }
 
     @Test
@@ -103,10 +109,10 @@ class PdfExportHelperTest {
         }
         val html = PdfExportHelper.buildHtmlForNotes(notes, isSingleNote = false)
 
-        assertTrue(html.contains("<div class=\"cover-page"))
+        assertTrue(html.contains("cover-page"))
         assertTrue(html.contains("landscape-page toc-page"))
         assertTrue(html.contains("two-column-page"))
-        assertTrue(html.contains("<div class=\"end-page"))
+        assertTrue(html.contains("end-page"))
         assertTrue(html.contains("মোট কবিতা: ৮ টি"))
         assertTrue(html.contains("কবিতা ১"))
         assertTrue(html.contains("কবিতা ৮"))
@@ -127,23 +133,49 @@ class PdfExportHelperTest {
     }
 
     @Test
-    fun testLongPoemSpanningOver15Lines() {
-        val longPoemLines = (1..20).joinToString("\n") { "চরণ নম্বর ${PdfExportHelper.toBengaliNumerals(it)}" }
+    fun testLongPoemSpanningOver35Lines() {
+        val longPoemLines = (1..40).joinToString("\n") { "চরণ নম্বর ${PdfExportHelper.toBengaliNumerals(it)}" }
         val shortPoem = createDummyNote(1, "ছোট কবিতা", "ছোট দুই লাইন\nদ্বিতীয় লাইন")
         val longPoem = createDummyNote(2, "বড় কবিতা", longPoemLines)
 
         val html = PdfExportHelper.buildHtmlForNotes(listOf(shortPoem, longPoem), isSingleNote = false)
 
         assertTrue(html.contains("spanning-poem-container"))
-        assertTrue(html.contains("fullwidth-poem-header"))
+        assertTrue(html.contains("left-span-col"))
+        assertTrue(html.contains("right-span-col"))
         assertTrue(html.contains("spread-gutter-divider"))
         assertTrue(html.contains("spanning-leaf-footer"))
     }
 
     @Test
-    fun testSingleNoteLandscapeExportUnder24Lines() {
+    fun testThirtyMixedPoemsBookletGeneration() {
+        val mixedNotes = (1..30).map { i ->
+            val bnNum = PdfExportHelper.toBengaliNumerals(i)
+            val lines = if (i % 5 == 0) {
+                // long poem >35 lines
+                (1..42).joinToString("\n") { "পঙ্ক্তি $it" }
+            } else {
+                // short poem <=35 lines
+                (1..12).joinToString("\n") { "পঙ্ক্তি $it" }
+            }
+            createDummyNote(i.toLong(), "কবিতা $bnNum", lines)
+        }
+
+        val html = PdfExportHelper.buildHtmlForNotes(mixedNotes, isSingleNote = false)
+
+        assertTrue(html.contains("cover-page"))
+        assertTrue(html.contains("toc-page"))
+        assertTrue(html.contains("end-page"))
+        assertTrue(html.contains("মোট কবিতা: ৩০ টি"))
+        assertTrue(html.contains("কবিতা ১"))
+        assertTrue(html.contains("কবিতা ৩০"))
+    }
+
+    @Test
+    fun testSingleNoteLandscapeExportUnder35Lines() {
+        val thirtyLines = (1..30).joinToString("\n") { "পঙ্ক্তি নম্বর ${PdfExportHelper.toBengaliNumerals(it)}" }
         val notes = listOf(
-            createDummyNote(1, "একক কবিতা", "এটি একটি একক কবিতা যা ল্যান্ডস্কেপ মোডে প্রকাশিত হবে।\nদ্বিতীয় চরণ।")
+            createDummyNote(1, "একক কবিতা", thirtyLines)
         )
         val html = PdfExportHelper.buildHtmlForNotes(notes, isSingleNote = true)
 
@@ -156,12 +188,13 @@ class PdfExportHelperTest {
         assertTrue(html.contains("single-export-header"))
         assertTrue(html.contains("class=\"single-note-col single-note-empty-col\""))
         assertTrue(html.contains("একক কবিতা"))
+        assertTrue(html.contains("পঙ্ক্তি নম্বর ৩০"))
     }
 
     @Test
-    fun testSingleNoteLandscapeExportOver24Lines() {
-        val thirtyLines = (1..30).joinToString("\n") { "পঙ্ক্তি নম্বর ${PdfExportHelper.toBengaliNumerals(it)}" }
-        val note = createDummyNote(1, "দীর্ঘ একক কবিতা", thirtyLines)
+    fun testSingleNoteLandscapeExportOver35Lines() {
+        val fortyFiveLines = (1..45).joinToString("\n") { "পঙ্ক্তি নম্বর ${PdfExportHelper.toBengaliNumerals(it)}" }
+        val note = createDummyNote(1, "দীর্ঘ একক কবিতা", fortyFiveLines)
         val html = PdfExportHelper.buildHtmlForNotes(listOf(note), isSingleNote = true)
 
         assertTrue(html.contains("single-note-page"))
@@ -174,7 +207,8 @@ class PdfExportHelperTest {
         assertFalse(html.contains("class=\"single-note-col single-note-empty-col\""))
         assertTrue(html.contains("দীর্ঘ একক কবিতা"))
         assertTrue(html.contains("পঙ্ক্তি নম্বর ১"))
-        assertTrue(html.contains("পঙ্ক্তি নম্বর ২৫"))
+        assertTrue(html.contains("পঙ্ক্তি নম্বর ৩৫"))
+        assertTrue(html.contains("পঙ্ক্তি নম্বর ৩৬"))
     }
 
     @Test
