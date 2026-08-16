@@ -141,10 +141,11 @@ class PdfExportHelperTest {
         val html = PdfExportHelper.buildHtmlForNotes(listOf(shortPoem, longPoem), isSingleNote = false)
 
         assertTrue(html.contains("spanning-poem-container"))
-        assertTrue(html.contains("left-span-col"))
-        assertTrue(html.contains("right-span-col"))
-        assertTrue(html.contains("spread-gutter-divider"))
-        assertTrue(html.contains("spanning-leaf-footer"))
+        assertTrue(html.contains("multi-column-flow-container"))
+        assertTrue(html.contains("flow-header"))
+        assertTrue(html.contains("flow-poem-body"))
+        assertTrue(html.contains("poem-author-section"))
+        assertTrue(html.contains("বড় কবিতা"))
     }
 
     @Test
@@ -185,8 +186,10 @@ class PdfExportHelperTest {
         assertTrue(html.contains("single-note-page"))
         assertTrue(html.contains("single-note-outer-container"))
         assertTrue(html.contains("single-note-unified-frame"))
-        assertTrue(html.contains("single-export-header"))
-        assertTrue(html.contains("class=\"single-note-col single-note-empty-col\""))
+        assertTrue(html.contains("multi-column-flow-container"))
+        assertTrue(html.contains("flow-header"))
+        assertTrue(html.contains("flow-poem-body"))
+        assertTrue(html.contains("poem-author-section"))
         assertTrue(html.contains("একক কবিতা"))
         assertTrue(html.contains("পঙ্ক্তি নম্বর ৩০"))
     }
@@ -200,15 +203,14 @@ class PdfExportHelperTest {
         assertTrue(html.contains("single-note-page"))
         assertTrue(html.contains("single-note-outer-container"))
         assertTrue(html.contains("single-note-unified-frame"))
-        assertTrue(html.contains("single-export-header"))
-        assertTrue(html.contains("single-note-left-col"))
-        assertTrue(html.contains("single-note-right-col"))
-        assertTrue(html.contains("spread-gutter-divider"))
-        assertFalse(html.contains("class=\"single-note-col single-note-empty-col\""))
+        assertTrue(html.contains("multi-column-flow-container"))
+        assertTrue(html.contains("flow-header"))
+        assertTrue(html.contains("flow-poem-body"))
+        assertTrue(html.contains("poem-author-section"))
         assertTrue(html.contains("দীর্ঘ একক কবিতা"))
         assertTrue(html.contains("পঙ্ক্তি নম্বর ১"))
         assertTrue(html.contains("পঙ্ক্তি নম্বর ৩৫"))
-        assertTrue(html.contains("পঙ্ক্তি নম্বর ৩৬"))
+        assertTrue(html.contains("পঙ্ক্তি নম্বর ৪২"))
     }
 
     @Test
