@@ -159,7 +159,7 @@ object PdfExportHelper {
 
     private sealed class PdfPageItem {
         /**
-         * Two distinct poems on left and right columns (each <= 15 lines)
+         * Two distinct poems on left and right columns (each <= 35 lines)
          */
         data class TwoPoemSpread(
             val leftNote: NoteEntity,
@@ -169,28 +169,20 @@ object PdfExportHelper {
         ) : PdfPageItem()
 
         /**
-         * A single poem spanning both columns (> 15 lines for multi-note booklet)
-         * leftContent: First column text
-         * rightContent: Second column text (remaining lines)
+         * A single poem spanning both columns using CSS Multi-Column flow (> 35 lines for multi-note booklet)
          */
         data class SpanningPoemSpread(
             val note: NoteEntity,
-            val leftContent: String,
-            val rightContent: String,
             val leftPageNum: Int,
             val rightPageNum: Int
         ) : PdfPageItem()
 
         /**
-         * Standalone single note export:
-         * If <= 35 lines: fits completely in Column 1, right column is empty/unused. Title in Column 1.
-         * If > 35 lines: exactly first 35 lines in Column 1, line 36+ in Column 2. Title still in Column 1.
+         * Standalone single note export using CSS Multi-Column flow (column-count: 2; column-fill: auto;)
+         * Fits in column 1 if short, naturally flows to column 2 when exceeding 1 column height.
          */
         data class SingleNoteStandalone(
-            val note: NoteEntity,
-            val isOverflowing: Boolean,
-            val leftLines: String,
-            val rightLines: String
+            val note: NoteEntity
         ) : PdfPageItem()
     }
 
@@ -208,35 +200,6 @@ object PdfExportHelper {
     fun isSingleNoteOverflowing(note: NoteEntity): Boolean {
         val lines = note.content.lines()
         return lines.size > 35
-    }
-
-    /**
-     * Splits a long poem's lines sequentially for multi-note collection so column 1 is filled with
-     * exactly 35 lines before flowing to column 2.
-     */
-    private fun splitPoemIntoTwoColumns(content: String): Pair<String, String> {
-        val lines = content.lines()
-        if (lines.size <= 35) {
-            return Pair(content, "")
-        }
-        val col1Lines = lines.take(35)
-        val col2Lines = lines.drop(35)
-        return Pair(col1Lines.joinToString("\n"), col2Lines.joinToString("\n"))
-    }
-
-    /**
-     * Splits a single note for standalone export:
-     * - Exactly first 35 lines in Column 1
-     * - 36th line onwards in Column 2
-     */
-    private fun splitSingleNoteBy35Lines(content: String): Pair<String, String> {
-        val lines = content.lines()
-        if (lines.size <= 35) {
-            return Pair(content, "")
-        }
-        val col1Lines = lines.take(35)
-        val col2Lines = lines.drop(35)
-        return Pair(col1Lines.joinToString("\n"), col2Lines.joinToString("\n"))
     }
 
     /**
@@ -277,12 +240,12 @@ object PdfExportHelper {
         val charCount = content.length
 
         return when {
-            lineCount > 50 || charCount > 1600 -> Pair(11.0f, 1.22f)
-            lineCount > 35 || charCount > 1100 -> Pair(11.5f, 1.25f)
-            lineCount > 20 || charCount > 550  -> Pair(13.5f, 1.32f)
+            lineCount > 55 || charCount > 1800 -> Pair(10.5f, 1.20f)
+            lineCount > 40 || charCount > 1300 -> Pair(11.5f, 1.24f)
+            lineCount > 25 || charCount > 800  -> Pair(12.5f, 1.28f)
             else -> {
-                val base = (userFontSizeSp * 0.95f).coerceIn(14.0f, 16.5f)
-                val lRatio = userLineSpacingMultiplier.coerceIn(1.35f, 1.50f)
+                val base = (userFontSizeSp * 0.95f).coerceIn(13.0f, 15.5f)
+                val lRatio = userLineSpacingMultiplier.coerceIn(1.30f, 1.45f)
                 Pair(base, lRatio)
             }
         }
@@ -301,12 +264,12 @@ object PdfExportHelper {
         val charCount = content.length
 
         return when {
-            lineCount > 35 || charCount > 1200 -> Pair(14.0f, 1.35f)
-            lineCount > 24 || charCount > 800  -> Pair(16.0f, 1.40f)
-            lineCount > 16 || charCount > 500  -> Pair(18.0f, 1.45f)
+            lineCount > 55 || charCount > 1800 -> Pair(11.0f, 1.22f)
+            lineCount > 35 || charCount > 1200 -> Pair(12.5f, 1.28f)
+            lineCount > 20 || charCount > 700  -> Pair(14.0f, 1.35f)
             else -> {
-                val base = (userFontSizeSp * 1.1f).coerceIn(18.0f, 22.0f)
-                val lRatio = userLineSpacingMultiplier.coerceIn(1.45f, 1.6f)
+                val base = (userFontSizeSp * 1.05f).coerceIn(15.0f, 18.0f)
+                val lRatio = userLineSpacingMultiplier.coerceIn(1.38f, 1.50f)
                 Pair(base, lRatio)
             }
         }
@@ -410,42 +373,24 @@ object PdfExportHelper {
         if (isSingleNote) {
             if (notes.isNotEmpty()) {
                 val note = notes.first()
-                if (isSingleNoteOverflowing(note)) {
-                    val (col1, col2) = splitSingleNoteBy35Lines(note.content)
-                    pageItems.add(
-                        PdfPageItem.SingleNoteStandalone(
-                            note = note,
-                            isOverflowing = true,
-                            leftLines = col1,
-                            rightLines = col2
-                        )
+                pageItems.add(
+                    PdfPageItem.SingleNoteStandalone(
+                        note = note
                     )
-                } else {
-                    pageItems.add(
-                        PdfPageItem.SingleNoteStandalone(
-                            note = note,
-                            isOverflowing = false,
-                            leftLines = note.content,
-                            rightLines = ""
-                        )
-                    )
-                }
+                )
             }
         } else {
             var i = 0
             while (i < notes.size) {
                 val current = notes[i]
                 if (isLongPoem(current)) {
-                    // Long poem (>35 lines): takes both columns of a physical page
-                    val (col1, col2) = splitPoemIntoTwoColumns(current.content)
+                    // Long poem (>35 lines): takes both columns of a physical page with CSS multi-column flow
                     val p1 = currentColumnLeafNumber
                     val p2 = currentColumnLeafNumber + 1
                     notePageMap[current.id] = p1
                     pageItems.add(
                         PdfPageItem.SpanningPoemSpread(
                             note = current,
-                            leftContent = col1,
-                            rightContent = col2,
                             leftPageNum = p1,
                             rightPageNum = p2
                         )
@@ -769,28 +714,12 @@ object PdfExportHelper {
                     val (fontSizePx, lineHeightRatio) = calculateSpanningTypography(note.content, note.fontSizeSp, note.lineSpacingMultiplier)
 
                     val safeTitle = escapeHtml(title)
-                    val leftContentHtml = escapeHtml(pageItem.leftContent)
-                    val rightContentHtml = escapeHtml(pageItem.rightContent)
+                    val safeContent = escapeHtml(note.content)
 
                     val leftPageBn = toBengaliNumerals(pageItem.leftPageNum)
                     val rightPageBn = toBengaliNumerals(pageItem.rightPageNum)
 
-                    val authorSignatureInRightColumn = renderAuthorSignature(fontCssFamily)
-
-                    val leftColumnHeaderHtml = """
-                    <div class="leaf-header">
-                        <h3 class="leaf-poem-title" style="color: $readableTitleColor; font-family: $fontCssFamily;">$safeTitle</h3>
-                        <div class="leaf-divider">
-                            <span class="leaf-divider-line"></span>
-                            <span class="leaf-symbol">❦</span>
-                            <span class="leaf-divider-line"></span>
-                        </div>
-                        <div class="leaf-meta">
-                            <span>রচনাকাল: $noteDate</span>
-                            ${if (note.updatedAt > note.createdAt + 60000) " • <span>সম্পাদিত: $updatedDate</span>" else ""}
-                        </div>
-                    </div>
-                    """.trimIndent()
+                    val authorHtml = renderAuthorSignature(fontCssFamily)
 
                     """
                     <div class="landscape-page spanning-page $pageBreakClass">
@@ -809,52 +738,45 @@ object PdfExportHelper {
                                 </div>
                                 <div class="header-divider-line"></div>
 
-                                <!-- Unified Outer Frame for Single Long Poem -->
+                                <!-- Unified CSS Multi-Column Flow Container for Spanning Poem -->
                                 <div class="spanning-poem-container">
                                     <div class="spanning-card">
-                                        <!-- Two-Column Spread Content Area -->
-                                        <div class="spanning-columns-wrapper">
-                                            <!-- Column 1 (Left Part: Header + 35 Lines) -->
-                                            <div class="spanning-col left-span-col">
-                                                $leftColumnHeaderHtml
-                                                <div class="spanning-col-body" style="
-                                                    color: $readableTextColor;
-                                                    font-size: ${fontSizePx}px;
-                                                    font-weight: $fontWeight;
-                                                    font-style: $fontStyle;
-                                                    text-decoration: $textDecorationCss;
-                                                    line-height: $lineHeightRatio;
-                                                    font-family: $fontCssFamily;
-                                                ">$leftContentHtml</div>
-
-                                                <div class="spanning-leaf-footer">
-                                                    <span class="leaf-page-num">— $leftPageBn —</span>
+                                        <div class="multi-column-flow-container">
+                                            <div class="flow-header">
+                                                <h3 class="flow-poem-title" style="color: $readableTitleColor; font-family: $fontCssFamily;">$safeTitle</h3>
+                                                <div class="leaf-divider">
+                                                    <span class="leaf-divider-line"></span>
+                                                    <span class="leaf-symbol">❦</span>
+                                                    <span class="leaf-divider-line"></span>
+                                                </div>
+                                                <div class="leaf-meta">
+                                                    <span>রচনাকাল: $noteDate</span>
+                                                    ${if (note.updatedAt > note.createdAt + 60000) " • <span>সম্পাদিত: $updatedDate</span>" else ""}
                                                 </div>
                                             </div>
 
-                                            <!-- Divider Line Between Columns -->
-                                            <div class="spread-gutter-divider"></div>
+                                            <div class="flow-poem-body" style="
+                                                color: $readableTextColor;
+                                                font-size: ${fontSizePx}px;
+                                                font-weight: $fontWeight;
+                                                font-style: $fontStyle;
+                                                text-decoration: $textDecorationCss;
+                                                line-height: $lineHeightRatio;
+                                                font-family: $fontCssFamily;
+                                            ">$safeContent</div>
 
-                                            <!-- Column 2 (Right Part: 36th Line Onwards + Author Signature) -->
-                                            <div class="spanning-col right-span-col">
-                                                <div class="spanning-col-body" style="
-                                                    color: $readableTextColor;
-                                                    font-size: ${fontSizePx}px;
-                                                    font-weight: $fontWeight;
-                                                    font-style: $fontStyle;
-                                                    text-decoration: $textDecorationCss;
-                                                    line-height: $lineHeightRatio;
-                                                    font-family: $fontCssFamily;
-                                                ">$rightContentHtml</div>
-
-                                                <!-- Author Signature placed immediately at end of poem in Column 2 -->
-                                                $authorSignatureInRightColumn
-
-                                                <div class="spanning-leaf-footer">
-                                                    <span class="leaf-page-num">— $rightPageBn —</span>
-                                                </div>
-                                            </div>
+                                            $authorHtml
                                         </div>
+                                    </div>
+                                </div>
+
+                                <!-- Page Bottom Footer -->
+                                <div class="page-bottom-footer">
+                                    <div class="footer-divider"></div>
+                                    <div class="footer-row">
+                                        <span class="footer-app-name">পাতা $leftPageBn</span>
+                                        <span class="footer-page-num">— ✦ ❦ ✦ —</span>
+                                        <span class="footer-app-name">পাতা $rightPageBn</span>
                                     </div>
                                 </div>
                             </div>
@@ -883,86 +805,11 @@ object PdfExportHelper {
                     val fontWeight = if (note.isBold) "bold" else "normal"
                     val fontStyle = if (note.isItalic) "italic" else "normal"
 
-                    val (fontSizePx, lineHeightRatio) = calculateColumnTypography(note.content, note.fontSizeSp, note.lineSpacingMultiplier)
+                    val (fontSizePx, lineHeightRatio) = calculateSingleNoteTypography(note.content, note.fontSizeSp, note.lineSpacingMultiplier)
 
                     val safeTitle = escapeHtml(title)
-                    val leftLinesHtml = escapeHtml(pageItem.leftLines)
-                    val rightLinesHtml = escapeHtml(pageItem.rightLines)
+                    val safeContent = escapeHtml(note.content)
                     val authorHtml = renderAuthorSignature(fontCssFamily)
-
-                    val headerHtml = """
-                    <div class="single-export-header">
-                        <h2 class="single-export-title" style="color: $readableTitleColor; font-family: $fontCssFamily;">$safeTitle</h2>
-                        <div class="leaf-divider">
-                            <span class="leaf-divider-line"></span>
-                            <span class="leaf-symbol">❦</span>
-                            <span class="leaf-divider-line"></span>
-                        </div>
-                        <div class="leaf-meta">
-                            <span>রচনাকাল: $noteDate</span>
-                            ${if (note.updatedAt > note.createdAt + 60000) " • <span>সম্পাদিত: $updatedDate</span>" else ""}
-                        </div>
-                    </div>
-                    """.trimIndent()
-
-                    val bodyContentHtml = if (pageItem.isOverflowing) {
-                        """
-                        <div class="single-note-columns-wrapper">
-                            <!-- Column 1: Header + First 35 Lines -->
-                            <div class="single-note-col single-note-left-col">
-                                $headerHtml
-                                <div class="single-note-col-body" style="
-                                    color: $readableTextColor;
-                                    font-size: ${fontSizePx}px;
-                                    font-weight: $fontWeight;
-                                    font-style: $fontStyle;
-                                    text-decoration: $textDecorationCss;
-                                    line-height: $lineHeightRatio;
-                                    font-family: $fontCssFamily;
-                                ">$leftLinesHtml</div>
-                            </div>
-
-                            <!-- Divider between Column 1 & Overflow Column 2 -->
-                            <div class="spread-gutter-divider"></div>
-
-                            <!-- Column 2: 36th Line Onwards + Author Signature -->
-                            <div class="single-note-col single-note-right-col">
-                                <div class="single-note-col-body" style="
-                                    color: $readableTextColor;
-                                    font-size: ${fontSizePx}px;
-                                    font-weight: $fontWeight;
-                                    font-style: $fontStyle;
-                                    text-decoration: $textDecorationCss;
-                                    line-height: $lineHeightRatio;
-                                    font-family: $fontCssFamily;
-                                ">$rightLinesHtml</div>
-                                $authorHtml
-                            </div>
-                        </div>
-                        """.trimIndent()
-                    } else {
-                        """
-                        <div class="single-note-columns-wrapper">
-                            <!-- Column 1: Header + Entire Poem (<= 35 lines) + Author Signature -->
-                            <div class="single-note-col single-note-left-col">
-                                $headerHtml
-                                <div class="single-note-col-body" style="
-                                    color: $readableTextColor;
-                                    font-size: ${fontSizePx}px;
-                                    font-weight: $fontWeight;
-                                    font-style: $fontStyle;
-                                    text-decoration: $textDecorationCss;
-                                    line-height: $lineHeightRatio;
-                                    font-family: $fontCssFamily;
-                                ">$leftLinesHtml</div>
-                                $authorHtml
-                            </div>
-
-                            <!-- Empty Column 2 slot to preserve layout balance -->
-                            <div class="single-note-col single-note-empty-col"></div>
-                        </div>
-                        """.trimIndent()
-                    }
 
                     """
                     <div class="landscape-page single-note-page $pageBreakClass">
@@ -981,10 +828,45 @@ object PdfExportHelper {
                                 </div>
                                 <div class="header-divider-line"></div>
 
-                                <!-- Unified Outer Frame for Single Note -->
+                                <!-- Unified CSS Multi-Column Flow Container for Single Note -->
                                 <div class="single-note-outer-container">
                                     <div class="single-note-unified-frame">
-                                        $bodyContentHtml
+                                        <div class="multi-column-flow-container">
+                                            <div class="flow-header">
+                                                <h2 class="flow-poem-title" style="color: $readableTitleColor; font-family: $fontCssFamily; font-size: 22px;">$safeTitle</h2>
+                                                <div class="leaf-divider">
+                                                    <span class="leaf-divider-line"></span>
+                                                    <span class="leaf-symbol">❦</span>
+                                                    <span class="leaf-divider-line"></span>
+                                                </div>
+                                                <div class="leaf-meta">
+                                                    <span>রচনাকাল: $noteDate</span>
+                                                    ${if (note.updatedAt > note.createdAt + 60000) " • <span>সম্পাদিত: $updatedDate</span>" else ""}
+                                                </div>
+                                            </div>
+
+                                            <div class="flow-poem-body" style="
+                                                color: $readableTextColor;
+                                                font-size: ${fontSizePx}px;
+                                                font-weight: $fontWeight;
+                                                font-style: $fontStyle;
+                                                text-decoration: $textDecorationCss;
+                                                line-height: $lineHeightRatio;
+                                                font-family: $fontCssFamily;
+                                            ">$safeContent</div>
+
+                                            $authorHtml
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Page Bottom Footer -->
+                                <div class="page-bottom-footer">
+                                    <div class="footer-divider"></div>
+                                    <div class="footer-row">
+                                        <span class="footer-app-name">কাব্যলোকের ব্রহ্মকবি</span>
+                                        <span class="footer-page-num">— একক কবিতা সংস্করণ —</span>
+                                        <span class="footer-app-name">সাহিত্য প্রকাশনা</span>
                                     </div>
                                 </div>
                             </div>
@@ -1307,7 +1189,55 @@ object PdfExportHelper {
                     overflow-wrap: break-word;
                 }
 
-                /* ================= SPANNING POEM CONTAINER (2 DISTINCT COLUMNS UNDER 1 FULL-WIDTH HEADER) ================= */
+                /* ================= MULTI-COLUMN FLOW CONTAINER (CSS MULTI-COLUMN WITH COLUMN-FILL: AUTO) ================= */
+                .multi-column-flow-container {
+                    width: 100%;
+                    height: 595px;
+                    max-height: 595px;
+                    box-sizing: border-box;
+                    column-count: 2;
+                    -webkit-column-count: 2;
+                    column-fill: auto;
+                    -webkit-column-fill: auto;
+                    column-gap: 36px;
+                    -webkit-column-gap: 36px;
+                    column-rule: 1px solid rgba(212, 160, 23, 0.4);
+                    -webkit-column-rule: 1px solid rgba(212, 160, 23, 0.4);
+                    text-align: center;
+                }
+                .flow-header {
+                    width: 100%;
+                    margin-bottom: 8px;
+                    text-align: center !important;
+                    box-sizing: border-box;
+                    break-inside: avoid !important;
+                    -webkit-column-break-inside: avoid !important;
+                    page-break-inside: avoid !important;
+                }
+                .flow-poem-title {
+                    width: 100%;
+                    font-size: 21px;
+                    margin: 0 0 4px 0;
+                    font-weight: bold;
+                    line-height: 1.3;
+                    text-align: center !important;
+                    box-sizing: border-box;
+                    word-wrap: break-word;
+                    overflow-wrap: break-word;
+                }
+                .flow-poem-body {
+                    width: 100%;
+                    box-sizing: border-box;
+                    white-space: pre-wrap;
+                    word-wrap: break-word;
+                    overflow-wrap: break-word;
+                    word-break: normal;
+                    text-align: center !important;
+                    margin: 0 0 4px 0;
+                    padding: 0;
+                }
+
+                /* ================= SPANNING POEM CONTAINER ================= */
                 .spanning-poem-container {
                     width: 100%;
                     flex-grow: 1;
@@ -1324,43 +1254,7 @@ object PdfExportHelper {
                     padding: 14px 20px 8px 20px;
                     display: flex;
                     flex-direction: column;
-                    justify-content: space-between;
                     box-sizing: border-box;
-                }
-                .spanning-columns-wrapper {
-                    display: flex;
-                    flex-direction: row;
-                    justify-content: space-between;
-                    align-items: stretch;
-                    width: 100%;
-                    flex-grow: 1;
-                    min-height: 0;
-                    box-sizing: border-box;
-                }
-                .spanning-col {
-                    flex: 1;
-                    display: flex;
-                    flex-direction: column;
-                    justify-content: space-between;
-                    padding: 0 16px;
-                    box-sizing: border-box;
-                }
-                .spread-gutter-divider {
-                    width: 1px;
-                    background: linear-gradient(to bottom, transparent, rgba(212, 160, 23, 0.4) 15%, rgba(212, 160, 23, 0.4) 85%, transparent);
-                    margin: 0 4px;
-                }
-                .spanning-col-body {
-                    width: 100%;
-                    box-sizing: border-box;
-                    display: block;
-                    white-space: pre-wrap;
-                    word-wrap: break-word;
-                    overflow-wrap: break-word;
-                    word-break: normal;
-                    text-align: center !important;
-                    margin: auto 0;
-                    flex-grow: 1;
                 }
 
                 /* ================= SINGLE NOTE CONTAINER & STYLING ================= */
@@ -1380,70 +1274,7 @@ object PdfExportHelper {
                     padding: 14px 20px 8px 20px;
                     display: flex;
                     flex-direction: column;
-                    justify-content: space-between;
                     box-sizing: border-box;
-                }
-                .single-note-columns-wrapper {
-                    display: flex;
-                    flex-direction: row;
-                    justify-content: space-between;
-                    align-items: stretch;
-                    width: 100%;
-                    flex-grow: 1;
-                    min-height: 0;
-                    box-sizing: border-box;
-                }
-                .single-note-col {
-                    flex: 1;
-                    display: flex;
-                    flex-direction: column;
-                    justify-content: space-between;
-                    padding: 0 16px;
-                    box-sizing: border-box;
-                    min-height: 0;
-                }
-                .single-note-left-col {
-                    display: flex;
-                    flex-direction: column;
-                    justify-content: space-between;
-                }
-                .single-note-right-col {
-                    display: flex;
-                    flex-direction: column;
-                    justify-content: space-between;
-                }
-                .single-note-empty-col {
-                    /* Left intentionally blank when poem <= 24 lines */
-                    visibility: hidden;
-                }
-                .single-export-header {
-                    width: 100%;
-                    margin-bottom: 8px;
-                    text-align: center !important;
-                    box-sizing: border-box;
-                }
-                .single-export-title {
-                    width: 100%;
-                    font-size: 20px;
-                    margin: 0 0 4px 0;
-                    font-weight: bold;
-                    line-height: 1.3;
-                    text-align: center !important;
-                    box-sizing: border-box;
-                    word-wrap: break-word;
-                    overflow-wrap: break-word;
-                }
-                .single-note-col-body {
-                    width: 100%;
-                    box-sizing: border-box;
-                    display: block;
-                    white-space: pre-wrap;
-                    word-wrap: break-word;
-                    overflow-wrap: break-word;
-                    word-break: normal;
-                    text-align: center !important;
-                    margin: auto 0;
-                    flex-grow: 1;
                 }
 
                 /* ================= POEM TYPOGRAPHY (ALL CENTER ALIGNED) ================= */
