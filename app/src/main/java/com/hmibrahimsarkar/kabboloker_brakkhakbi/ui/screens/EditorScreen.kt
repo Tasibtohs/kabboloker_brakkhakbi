@@ -2,6 +2,7 @@ package com.hmibrahimsarkar.kabboloker_brakkhakbi.ui.screens
 
 import android.content.Context
 import android.content.Intent
+import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -23,6 +24,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -35,7 +37,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Redo
 import androidx.compose.material.icons.automirrored.filled.Undo
-import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.ColorLens
 import androidx.compose.material.icons.filled.AutoStories
 import androidx.compose.material.icons.filled.Close
@@ -51,6 +52,7 @@ import androidx.compose.material.icons.filled.Save
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material.icons.outlined.Edit
+import androidx.compose.material.icons.outlined.Folder
 import androidx.compose.material.icons.outlined.Lock
 import androidx.compose.material.icons.outlined.PushPin
 import androidx.compose.material.icons.outlined.TextFields
@@ -82,6 +84,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
@@ -93,6 +96,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.hmibrahimsarkar.kabboloker_brakkhakbi.ui.components.AppTopBar
+import com.hmibrahimsarkar.kabboloker_brakkhakbi.ui.components.AssignGroupDialog
+import com.hmibrahimsarkar.kabboloker_brakkhakbi.ui.components.CreateGroupDialog
 import com.hmibrahimsarkar.kabboloker_brakkhakbi.ui.components.DeleteConfirmationDialog
 import com.hmibrahimsarkar.kabboloker_brakkhakbi.ui.components.ColorPickerSheet
 import com.hmibrahimsarkar.kabboloker_brakkhakbi.ui.components.FontPickerSheet
@@ -139,15 +144,18 @@ fun EditorScreen(
 
     val editorTopBarName by mainViewModel.editorTopBarName.collectAsState()
     val authorSignatureName by mainViewModel.authorSignatureName.collectAsState()
+    val allGroups by mainViewModel.allGroups.collectAsState()
 
     var isReadingMode by remember { mutableStateOf(false) }
     var isOverflowMenuExpanded by remember { mutableStateOf(false) }
 
-    // Bottom Sheet States
+    // Bottom Sheet & Dialog States
     var showFormattingSheet by remember { mutableStateOf(false) }
     var showFontSheet by remember { mutableStateOf(false) }
     var showColorSheet by remember { mutableStateOf(false) }
     var showDeleteDialog by remember { mutableStateOf(false) }
+    var showMoveGroupDialog by remember { mutableStateOf(false) }
+    var showCreateGroupDialog by remember { mutableStateOf(false) }
 
     val formatSheetState = rememberModalBottomSheetState()
     val fontSheetState = rememberModalBottomSheetState()
@@ -175,7 +183,10 @@ fun EditorScreen(
     val titleColor = resolveAdaptiveTitleColor(noteState.titleColorHex)
     val textColor = resolveAdaptiveTextColor(noteState.textColorHex)
 
-    val selectedFontOption = BengaliFonts.getFontByKey(noteState.fontFamilyKey)
+    val allFonts by BengaliFonts.fontsFlow.collectAsState()
+    val selectedFontOption = remember(noteState.fontFamilyKey, allFonts) {
+        BengaliFonts.getFontByKey(noteState.fontFamilyKey)
+    }
 
     val alignValue = when (noteState.textAlign) {
         "CENTER" -> TextAlign.Center
@@ -215,7 +226,7 @@ fun EditorScreen(
             if (!isReadingMode) {
                 AppTopBar(
                     title = editorTopBarName.ifBlank { "কাব্যলোকের ব্রক্ষকবি" },
-                    subtitle = if (noteState.isLocked) "🔒 লক করা (শুধুমাত্র পঠনযোগ্য)" else (if (isSaved) "" else "অটো-সেভ হচ্ছে..."),
+                    subtitle = if (noteState.isLocked) "(লক করা)" else (if (isSaved) "" else "অটো-সেভ হচ্ছে..."),
                     navigationIcon = {
                         IconButton(onClick = {
                             scope.launch {
@@ -281,7 +292,7 @@ fun EditorScreen(
                                 .border(1.dp, GoldPrimary.copy(alpha = 0.4f), RoundedCornerShape(16.dp))
                         ) {
                             DropdownMenuItem(
-                                text = { Text("রিডিং মোড (পঠন এলাকা)", fontWeight = FontWeight.Medium) },
+                                text = { Text("রিডিং মোড", fontWeight = FontWeight.Medium) },
                                 leadingIcon = {
                                     Icon(
                                         imageVector = Icons.Filled.AutoStories,
@@ -332,13 +343,8 @@ fun EditorScreen(
                                     isOverflowMenuExpanded = false
                                     val shareIntent = Intent(Intent.ACTION_SEND).apply {
                                         type = "text/plain"
-                                        putExtra(Intent.EXTRA_SUBJECT, noteState.title)
-                                        val signatureText = PdfExportHelper.formatAuthorSignature(authorSignatureName)
-                                        val textToShare = if (signatureText.isNotBlank()) {
-                                            "${noteState.title}\n\n${noteState.content}\n\n$signatureText"
-                                        } else {
-                                            "${noteState.title}\n\n${noteState.content}"
-                                        }
+                                        putExtra(Intent.EXTRA_SUBJECT, noteState.title.ifBlank { "কবিতা" })
+                                        val textToShare = PdfExportHelper.buildShareText(listOf(noteState), authorSignatureName)
                                         putExtra(Intent.EXTRA_TEXT, textToShare)
                                     }
                                     context.startActivity(Intent.createChooser(shareIntent, "শেয়ার করুন"))
@@ -359,7 +365,12 @@ fun EditorScreen(
                                 },
                                 onClick = {
                                     isOverflowMenuExpanded = false
-                                    clipboardManager.setText(AnnotatedString("${noteState.title}\n\n${noteState.content}"))
+                                    val copyText = when {
+                                        noteState.title.isNotBlank() && noteState.content.isNotBlank() -> "${noteState.title}\n\n${noteState.content}"
+                                        noteState.title.isNotBlank() -> noteState.title
+                                        else -> noteState.content
+                                    }
+                                    clipboardManager.setText(AnnotatedString(copyText))
                                 }
                             )
 
@@ -377,7 +388,7 @@ fun EditorScreen(
                                 },
                                 onClick = {
                                     isOverflowMenuExpanded = false
-                                    val noteTitle = if (noteState.title.isNotBlank()) noteState.title else "শিরোনামহীন_কবিতা"
+                                    val noteTitle = if (noteState.title.isNotBlank()) noteState.title else "কবিতা"
                                     val sanitizedTitle = noteTitle.take(30).replace(Regex("[\\\\/:*?\"<>|]"), "_")
                                     val defaultFileName = "${sanitizedTitle}.pdf"
                                     exportPdfLauncher.launch(defaultFileName)
@@ -386,22 +397,49 @@ fun EditorScreen(
 
                             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
 
+                            val currentGroupName = allGroups.find { it.id == noteState.groupId }?.name
                             DropdownMenuItem(
-                                text = { Text("মুছে ফেলুন", color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.Medium) },
+                                text = {
+                                    Text(
+                                        text = if (currentGroupName != null) "গ্রুপ পরিবর্তন ($currentGroupName)" else "গ্রুপে নিন",
+                                        fontWeight = FontWeight.Medium
+                                    )
+                                },
                                 leadingIcon = {
                                     Icon(
-                                        imageVector = Icons.Filled.Delete,
-                                        contentDescription = "Delete",
-                                        tint = MaterialTheme.colorScheme.error,
+                                        imageVector = Icons.Outlined.Folder,
+                                        contentDescription = "Move Group",
+                                        tint = GoldPrimary,
                                         modifier = Modifier.size(20.dp)
                                     )
                                 },
+                                modifier = Modifier.testTag("editor_menu_move_group"),
                                 onClick = {
                                     isOverflowMenuExpanded = false
-                                    editorViewModel.deleteCurrentNote()
-                                    onBack()
+                                    showMoveGroupDialog = true
                                 }
                             )
+
+                            if (!noteState.isLocked) {
+                                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+
+                                DropdownMenuItem(
+                                    text = { Text("মুছে ফেলুন", color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.Medium) },
+                                    leadingIcon = {
+                                        Icon(
+                                            imageVector = Icons.Filled.Delete,
+                                            contentDescription = "Delete",
+                                            tint = MaterialTheme.colorScheme.error,
+                                            modifier = Modifier.size(20.dp)
+                                        )
+                                    },
+                                    onClick = {
+                                        isOverflowMenuExpanded = false
+                                        editorViewModel.deleteCurrentNote()
+                                        onBack()
+                                    }
+                                )
+                            }
                         }
                     }
                 )
@@ -409,7 +447,7 @@ fun EditorScreen(
                 // Reading Mode AppTopBar
                 AppTopBar(
                     title = editorTopBarName.ifBlank { "কাব্যলোকের ব্রক্ষকবি" },
-                    subtitle = "📖 পঠন এলাকা",
+                    subtitle = if (noteState.isLocked) "(লক করা)" else "",
                     navigationIcon = {
                         IconButton(onClick = { isReadingMode = false }) {
                             Icon(
@@ -421,26 +459,18 @@ fun EditorScreen(
                         }
                     },
                     actions = {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
+                        IconButton(
+                            onClick = { isReadingMode = false },
                             modifier = Modifier
                                 .clip(RoundedCornerShape(50))
                                 .border(1.dp, GoldPrimary.copy(alpha = 0.5f), RoundedCornerShape(50))
-                                .clickable { isReadingMode = false }
-                                .padding(horizontal = 12.dp, vertical = 6.dp)
+                                .size(36.dp)
                         ) {
                             Icon(
                                 imageVector = Icons.Outlined.Edit,
-                                contentDescription = "সম্পাদনা করুন",
+                                contentDescription = "সম্পাদনা",
                                 tint = GoldPrimary,
                                 modifier = Modifier.size(18.dp)
-                            )
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text(
-                                text = "সম্পাদনা",
-                                fontSize = 13.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = GoldPrimary
                             )
                         }
                     }
@@ -450,10 +480,11 @@ fun EditorScreen(
         floatingActionButton = {},
         bottomBar = {
             if (!isReadingMode && !noteState.isLocked) {
-                // Pill Shape Bottom Formatting Bar
+                // Pill Shape Bottom Formatting Bar (Checkmark button removed; auto-save active)
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
+                        .navigationBarsPadding()
                         .padding(horizontal = 16.dp, vertical = 10.dp),
                     contentAlignment = Alignment.Center
                 ) {
@@ -462,8 +493,9 @@ fun EditorScreen(
                             .clip(RoundedCornerShape(50))
                             .background(MaterialTheme.colorScheme.surfaceVariant)
                             .border(1.dp, AmberAccent.copy(alpha = 0.4f), RoundedCornerShape(50))
-                            .padding(horizontal = 12.dp, vertical = 6.dp),
-                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                            .padding(horizontal = 14.dp, vertical = 6.dp)
+                            .testTag("editor_bottom_bar"),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         // Aa (Formatting)
@@ -525,22 +557,6 @@ fun EditorScreen(
                                 tint = if (noteState.isPinned) AmberAccent else MaterialTheme.colorScheme.onSurface
                             )
                         }
-
-                        // Save (Checkmark)
-                        IconButton(
-                            onClick = {
-                                scope.launch {
-                                    editorViewModel.saveNote()
-                                }
-                            },
-                            modifier = Modifier.size(36.dp)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Filled.Check,
-                                contentDescription = "Save Note",
-                                tint = GoldPrimary
-                            )
-                        }
                     }
                 }
             }
@@ -564,39 +580,12 @@ fun EditorScreen(
                     .padding(horizontal = 16.dp, vertical = 6.dp),
                 contentAlignment = Alignment.Center
             ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.Center
-                ) {
-                    if (noteState.isLocked) {
-                        Icon(
-                            imageVector = Icons.Filled.Lock,
-                            contentDescription = "Locked",
-                            tint = Color(0xFFC62828),
-                            modifier = Modifier.size(13.dp)
-                        )
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text(
-                            text = "লক করা (পঠনযোগ্য)",
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            color = Color(0xFFC62828)
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(
-                            text = "•",
-                            fontSize = 12.sp,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                    }
-                    Text(
-                        text = getBengaliFullDateTime(noteState.updatedAt),
-                        fontSize = 12.sp,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.85f),
-                        textAlign = TextAlign.Center
-                    )
-                }
+                Text(
+                    text = getBengaliFullDateTime(noteState.updatedAt),
+                    fontSize = 12.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.85f),
+                    textAlign = TextAlign.Center
+                )
             }
 
             // Content Area with generous left-right padding (18.dp)
@@ -612,36 +601,38 @@ fun EditorScreen(
                 val effectiveLineMultiplier = if (isReadingMode) maxOf(noteState.lineSpacingMultiplier * 1.4f, 1.8f) else (noteState.lineSpacingMultiplier * 1.3f)
                 val effectiveLineHeightSp = (effectiveFontSizeSp * effectiveLineMultiplier).sp
 
-                // Title Field: plain text field, medium-large font size, light gray placeholder "শিরোনাম...", no border/underline
-                BasicTextField(
-                    value = noteState.title,
-                    onValueChange = { editorViewModel.updateTitle(it) },
-                    readOnly = isReadingMode || noteState.isLocked,
-                    textStyle = TextStyle(
-                        fontSize = titleFontSize,
-                        fontWeight = FontWeight.Bold,
-                        fontFamily = selectedFontOption.fontFamily,
-                        color = titleColor,
-                        textAlign = alignValue
-                    ),
-                    cursorBrush = SolidColor(AmberAccent),
-                    modifier = Modifier.fillMaxWidth(),
-                    decorationBox = { innerTextField ->
-                        if (noteState.title.isEmpty()) {
-                            Text(
-                                text = "শিরোনাম...",
-                                fontSize = titleFontSize,
-                                fontWeight = FontWeight.Bold,
-                                fontFamily = selectedFontOption.fontFamily,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.65f),
-                                textAlign = alignValue
-                            )
+                // Title Field: hidden in read-only modes when blank; editable mode retains input hint
+                if (noteState.title.isNotBlank() || (!isReadingMode && !noteState.isLocked)) {
+                    BasicTextField(
+                        value = noteState.title,
+                        onValueChange = { editorViewModel.updateTitle(it) },
+                        readOnly = isReadingMode || noteState.isLocked,
+                        textStyle = TextStyle(
+                            fontSize = titleFontSize,
+                            fontWeight = FontWeight.Bold,
+                            fontFamily = selectedFontOption.fontFamily,
+                            color = titleColor,
+                            textAlign = alignValue
+                        ),
+                        cursorBrush = SolidColor(AmberAccent),
+                        modifier = Modifier.fillMaxWidth(),
+                        decorationBox = { innerTextField ->
+                            if (noteState.title.isEmpty()) {
+                                Text(
+                                    text = "শিরোনাম...",
+                                    fontSize = titleFontSize,
+                                    fontWeight = FontWeight.Bold,
+                                    fontFamily = selectedFontOption.fontFamily,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.65f),
+                                    textAlign = alignValue
+                                )
+                            }
+                            innerTextField()
                         }
-                        innerTextField()
-                    }
-                )
+                    )
 
-                Spacer(modifier = Modifier.height(14.dp))
+                    Spacer(modifier = Modifier.height(14.dp))
+                }
 
                 // Content Field: directly below title, placeholder "আপনার কবিতা বা লেখা লিখুন...", small light gray text, multiline
                 BasicTextField(
@@ -765,6 +756,33 @@ fun EditorScreen(
                 onBack()
             },
             onDismiss = { showDeleteDialog = false }
+        )
+    }
+
+    if (showMoveGroupDialog) {
+        AssignGroupDialog(
+            groups = allGroups,
+            currentGroupId = noteState.groupId,
+            title = "অন্য গ্রুপে নিন",
+            onCreateGroup = { showCreateGroupDialog = true },
+            onSelectGroup = { groupId ->
+                editorViewModel.moveToGroup(groupId)
+                val targetName = allGroups.find { it.id == groupId }?.name
+                val msg = if (targetName != null) "‘$targetName’ গ্রুপে নেওয়া হয়েছে" else "গ্রুপ থেকে সরানো হয়েছে"
+                Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
+                showMoveGroupDialog = false
+            },
+            onDismiss = { showMoveGroupDialog = false }
+        )
+    }
+
+    if (showCreateGroupDialog) {
+        CreateGroupDialog(
+            onConfirm = { name ->
+                mainViewModel.saveGroup(name = name)
+                showCreateGroupDialog = false
+            },
+            onDismiss = { showCreateGroupDialog = false }
         )
     }
 }
