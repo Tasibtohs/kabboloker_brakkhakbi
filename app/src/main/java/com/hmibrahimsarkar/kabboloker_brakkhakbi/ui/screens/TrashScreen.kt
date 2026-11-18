@@ -147,16 +147,21 @@ fun TrashScreen(
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Column(modifier = Modifier.weight(1f)) {
-                                    val titleText = if (note.title.isNotBlank()) note.title else "শিরোনামহীন কবিতা"
+                                    if (note.title.isNotBlank()) {
+                                        Text(
+                                            text = note.title,
+                                            fontSize = 16.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = MaterialTheme.colorScheme.onSurface
+                                        )
+                                        Spacer(modifier = Modifier.height(4.dp))
+                                    }
+                                    val previewOrDate = when {
+                                        note.content.isNotBlank() -> note.content.take(60)
+                                        else -> com.hmibrahimsarkar.kabboloker_brakkhakbi.ui.components.getBengaliFormattedDateTime(note.updatedAt)
+                                    }
                                     Text(
-                                        text = titleText,
-                                        fontSize = 16.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        color = MaterialTheme.colorScheme.onSurface
-                                    )
-                                    Spacer(modifier = Modifier.height(4.dp))
-                                    Text(
-                                        text = note.content.take(60),
+                                        text = previewOrDate,
                                         fontSize = 13.sp,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
