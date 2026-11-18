@@ -44,6 +44,7 @@ sealed class Screen {
     data class Editor(val noteId: Long? = null) : Screen()
     object Groups : Screen()
     object PinnedNotes : Screen()
+    object LockedNotes : Screen()
     object HiddenNotes : Screen()
     object Trash : Screen()
     object BackupRestore : Screen()
@@ -329,6 +330,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     val pinnedNotes: StateFlow<List<NoteEntity>> = repository.pinnedNotes
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
+    val lockedNotes: StateFlow<List<NoteEntity>> = repository.lockedNotes
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
     val hiddenNotes: StateFlow<List<NoteEntity>> = repository.hiddenNotes
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
@@ -404,6 +408,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     fun softDeleteNote(noteId: Long) {
         viewModelScope.launch {
+            val note = repository.getNoteByIdSync(noteId)
+            if (note?.isLocked == true) return@launch
             repository.softDeleteNote(noteId)
         }
     }
@@ -429,7 +435,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun softDeleteSelectedNotes() {
         viewModelScope.launch {
             _selectedNoteIds.value.forEach { noteId ->
-                repository.softDeleteNote(noteId)
+                val note = repository.getNoteByIdSync(noteId)
+                if (note?.isLocked != true) {
+                    repository.softDeleteNote(noteId)
+                }
             }
             clearSelection()
         }
@@ -461,6 +470,12 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun removeNoteFromGroup(note: NoteEntity) {
         viewModelScope.launch {
             repository.updateNote(note.copy(groupId = null, updatedAt = System.currentTimeMillis()))
+        }
+    }
+
+    fun moveNoteToGroup(note: NoteEntity, groupId: Long?) {
+        viewModelScope.launch {
+            repository.updateNote(note.copy(groupId = groupId, updatedAt = System.currentTimeMillis()))
         }
     }
 
@@ -523,6 +538,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     nObj.put("id", n.id)
                     nObj.put("title", n.title)
                     nObj.put("content", n.content)
+                    nObj.put("category", n.category)
                     nObj.put("titleColorHex", n.titleColorHex)
                     nObj.put("textColorHex", n.textColorHex)
                     nObj.put("fontFamilyKey", n.fontFamilyKey)
@@ -558,62 +574,111 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun restoreBackupFromJson(context: Context, uri: android.net.Uri) {
         viewModelScope.launch {
             try {
-                val jsonString = context.contentResolver.openInputStream(uri)?.use { inputStream ->
+                val fileContent = context.contentResolver.openInputStream(uri)?.use { inputStream ->
                     inputStream.bufferedReader().use { it.readText() }
                 } ?: return@launch
 
-                val rootObj = JSONObject(jsonString)
-                val groupsArray = rootObj.optJSONArray("groups") ?: JSONArray()
-                val notesArray = rootObj.optJSONArray("notes") ?: JSONArray()
+                val importedNotes = mutableListOf<NoteEntity>()
+                val importedGroups = mutableListOf<GroupEntity>()
 
-                val groups = mutableListOf<GroupEntity>()
-                for (i in 0 until groupsArray.length()) {
-                    val gObj = groupsArray.getJSONObject(i)
-                    groups.add(
-                        GroupEntity(
-                            id = gObj.optLong("id", 0),
-                            name = gObj.optString("name", "গ্রুপ"),
-                            colorHex = gObj.optString("colorHex", "#D4A017"),
-                            createdAt = gObj.optLong("createdAt", System.currentTimeMillis())
-                        )
-                    )
+                var parsedAsJson = false
+                val trimmed = fileContent.trim()
+                if (trimmed.startsWith("{")) {
+                    try {
+                        val rootObj = JSONObject(trimmed)
+                        val groupsArray = rootObj.optJSONArray("groups") ?: JSONArray()
+                        val notesArray = rootObj.optJSONArray("notes") ?: JSONArray()
+
+                        for (i in 0 until groupsArray.length()) {
+                            val gObj = groupsArray.getJSONObject(i)
+                            importedGroups.add(
+                                GroupEntity(
+                                    id = gObj.optLong("id", 0),
+                                    name = gObj.optString("name", "গ্রুপ"),
+                                    colorHex = gObj.optString("colorHex", "#D4A017"),
+                                    createdAt = gObj.optLong("createdAt", System.currentTimeMillis())
+                                )
+                            )
+                        }
+
+                        for (i in 0 until notesArray.length()) {
+                            val nObj = notesArray.getJSONObject(i)
+                            val gId = if (nObj.isNull("groupId")) null else nObj.optLong("groupId")
+                            importedNotes.add(
+                                NoteEntity(
+                                    id = 0, // Auto-generate new unique ID to keep all existing notes intact
+                                    title = nObj.optString("title", ""),
+                                    content = nObj.optString("content", ""),
+                                    category = nObj.optString("category", ""),
+                                    titleColorHex = nObj.optString("titleColorHex", "#D4A017"),
+                                    textColorHex = nObj.optString("textColorHex", "#1A1A2E"),
+                                    fontFamilyKey = nObj.optString("fontFamilyKey", "hind_siliguri"),
+                                    fontSizeSp = nObj.optDouble("fontSizeSp", 16.0).toFloat(),
+                                    isBold = nObj.optBoolean("isBold", false),
+                                    isItalic = nObj.optBoolean("isItalic", false),
+                                    isUnderline = nObj.optBoolean("isUnderline", false),
+                                    isStrikethrough = nObj.optBoolean("isStrikethrough", false),
+                                    textAlign = nObj.optString("textAlign", "LEFT"),
+                                    lineBreakMode = nObj.optString("lineBreakMode", "WORD"),
+                                    lineSpacingMultiplier = nObj.optDouble("lineSpacingMultiplier", 1.3).toFloat(),
+                                    groupId = gId,
+                                    isPinned = nObj.optBoolean("isPinned", false),
+                                    isLocked = nObj.optBoolean("isLocked", false),
+                                    isHidden = nObj.optBoolean("isHidden", false),
+                                    isTrashed = false,
+                                    createdAt = nObj.optLong("createdAt", System.currentTimeMillis()),
+                                    updatedAt = nObj.optLong("updatedAt", System.currentTimeMillis())
+                                )
+                            )
+                        }
+                        parsedAsJson = true
+                    } catch (e: Exception) {
+                        parsedAsJson = false
+                    }
+                } else if (trimmed.startsWith("[")) {
+                    try {
+                        val notesArray = JSONArray(trimmed)
+                        for (i in 0 until notesArray.length()) {
+                            val nObj = notesArray.getJSONObject(i)
+                            importedNotes.add(
+                                NoteEntity(
+                                    id = 0,
+                                    title = nObj.optString("title", "আমদানিকৃত কবিতা"),
+                                    content = nObj.optString("content", ""),
+                                    createdAt = System.currentTimeMillis(),
+                                    updatedAt = System.currentTimeMillis()
+                                )
+                            )
+                        }
+                        parsedAsJson = true
+                    } catch (e: Exception) {
+                        parsedAsJson = false
+                    }
                 }
 
-                val notes = mutableListOf<NoteEntity>()
-                for (i in 0 until notesArray.length()) {
-                    val nObj = notesArray.getJSONObject(i)
-                    val gId = if (nObj.isNull("groupId")) null else nObj.optLong("groupId")
-                    notes.add(
+                if (!parsedAsJson) {
+                    val lines = fileContent.lines()
+                    val firstLine = lines.firstOrNull { it.isNotBlank() } ?: "আমদানিকৃত নোট"
+                    val contentBody = if (lines.size > 1) {
+                        lines.drop(lines.indexOf(firstLine) + 1).joinToString("\n").trim()
+                    } else {
+                        firstLine
+                    }
+                    importedNotes.add(
                         NoteEntity(
-                            id = nObj.optLong("id", 0),
-                            title = nObj.optString("title", ""),
-                            content = nObj.optString("content", ""),
-                            titleColorHex = nObj.optString("titleColorHex", "#D4A017"),
-                            textColorHex = nObj.optString("textColorHex", "#1A1A2E"),
-                            fontFamilyKey = nObj.optString("fontFamilyKey", "hind_siliguri"),
-                            fontSizeSp = nObj.optDouble("fontSizeSp", 16.0).toFloat(),
-                            isBold = nObj.optBoolean("isBold", false),
-                            isItalic = nObj.optBoolean("isItalic", false),
-                            isUnderline = nObj.optBoolean("isUnderline", false),
-                            isStrikethrough = nObj.optBoolean("isStrikethrough", false),
-                            textAlign = nObj.optString("textAlign", "LEFT"),
-                            lineBreakMode = nObj.optString("lineBreakMode", "WORD"),
-                            lineSpacingMultiplier = nObj.optDouble("lineSpacingMultiplier", 1.3).toFloat(),
-                            groupId = gId,
-                            isPinned = nObj.optBoolean("isPinned", false),
-                            isLocked = nObj.optBoolean("isLocked", false),
-                            isHidden = nObj.optBoolean("isHidden", false),
-                            isTrashed = nObj.optBoolean("isTrashed", false),
-                            createdAt = nObj.optLong("createdAt", System.currentTimeMillis()),
-                            updatedAt = nObj.optLong("updatedAt", System.currentTimeMillis())
+                            id = 0,
+                            title = firstLine.take(60),
+                            content = contentBody.ifBlank { firstLine },
+                            createdAt = System.currentTimeMillis(),
+                            updatedAt = System.currentTimeMillis()
                         )
                     )
                 }
 
-                repository.restoreBackup(notes, groups)
-                Toast.makeText(context, "রিস্টোর সম্পন্ন হয়েছে! ${notes.size} টি নোট পুনরুদ্ধার করা হয়েছে।", Toast.LENGTH_SHORT).show()
+                repository.importBackupMerge(importedNotes, importedGroups)
+                Toast.makeText(context, "ইমপোর্ট সম্পন্ন হয়েছে! ${importedNotes.size} টি নতুন নোট যুক্ত হয়েছে (পূর্বের নোট অক্ষত রয়েছে)।", Toast.LENGTH_LONG).show()
             } catch (e: Exception) {
-                Toast.makeText(context, "রিস্টোরে সমস্যা হয়েছে: ${e.localizedMessage}", Toast.LENGTH_LONG).show()
+                Toast.makeText(context, "ইমপোর্টে সমস্যা হয়েছে: ${e.localizedMessage}", Toast.LENGTH_LONG).show()
             }
         }
     }
