@@ -538,7 +538,6 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     nObj.put("id", n.id)
                     nObj.put("title", n.title)
                     nObj.put("content", n.content)
-                    nObj.put("category", n.category)
                     nObj.put("titleColorHex", n.titleColorHex)
                     nObj.put("textColorHex", n.textColorHex)
                     nObj.put("fontFamilyKey", n.fontFamilyKey)
@@ -609,7 +608,6 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                                     id = 0, // Auto-generate new unique ID to keep all existing notes intact
                                     title = nObj.optString("title", ""),
                                     content = nObj.optString("content", ""),
-                                    category = nObj.optString("category", ""),
                                     titleColorHex = nObj.optString("titleColorHex", "#D4A017"),
                                     textColorHex = nObj.optString("textColorHex", "#1A1A2E"),
                                     fontFamilyKey = nObj.optString("fontFamilyKey", "hind_siliguri"),
