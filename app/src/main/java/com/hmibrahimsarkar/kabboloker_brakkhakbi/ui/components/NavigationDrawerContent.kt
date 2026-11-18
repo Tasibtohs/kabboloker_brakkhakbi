@@ -11,8 +11,10 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -32,6 +34,7 @@ import androidx.compose.material.icons.outlined.PictureAsPdf
 import androidx.compose.material.icons.outlined.PrivacyTip
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.outlined.Shield
+import androidx.compose.material.icons.outlined.VisibilityOff
 import androidx.compose.material.icons.outlined.PushPin
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -46,6 +49,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontStyle
@@ -77,23 +81,26 @@ fun NavigationDrawerContent(
     Column(
         modifier = Modifier
             .fillMaxHeight()
-            .width(300.dp)
+            .width(290.dp)
             .clip(DrawerShape)
             .background(bg)
-            .padding(vertical = 24.dp)
+            .statusBarsPadding()
+            .navigationBarsPadding()
+            .padding(top = 14.dp, bottom = 6.dp)
     ) {
         // Drawer Header
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 20.dp, vertical = 12.dp)
+                .padding(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 8.dp)
+                .testTag("drawer_header")
         ) {
             Row(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Box(
                     modifier = Modifier
-                        .size(48.dp)
+                        .size(40.dp)
                         .clip(CircleShape)
                         .background(
                             Brush.radialGradient(
@@ -106,12 +113,12 @@ fun NavigationDrawerContent(
                         painter = painterResource(id = R.drawable.poetry_app_logo_1785492330798),
                         contentDescription = "App Icon",
                         modifier = Modifier
-                            .size(42.dp)
+                            .size(36.dp)
                             .clip(CircleShape)
                     )
                 }
 
-                Spacer(modifier = Modifier.width(14.dp))
+                Spacer(modifier = Modifier.width(12.dp))
 
                 Column {
                     val goldBrush = Brush.horizontalGradient(
@@ -119,14 +126,14 @@ fun NavigationDrawerContent(
                     )
                     Text(
                         text = "কাব্যলোকের ব্রক্ষকবি",
-                        fontSize = 18.sp,
+                        fontSize = 17.sp,
                         fontWeight = FontWeight.Bold,
                         fontFamily = AppTitleFont,
                         style = MaterialTheme.typography.titleLarge.copy(brush = goldBrush)
                     )
                     Text(
                         text = "কবি ও শব্দের আসর",
-                        fontSize = 12.sp,
+                        fontSize = 11.sp,
                         fontStyle = FontStyle.Italic,
                         fontFamily = AppBodyFont,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -135,19 +142,19 @@ fun NavigationDrawerContent(
             }
         }
 
-        Spacer(modifier = Modifier.height(16.dp))
+        Spacer(modifier = Modifier.height(8.dp))
         HorizontalDivider(
             color = MaterialTheme.colorScheme.outlineVariant,
-            modifier = Modifier.padding(horizontal = 20.dp)
+            modifier = Modifier.padding(horizontal = 16.dp)
         )
-        Spacer(modifier = Modifier.height(16.dp))
+        Spacer(modifier = Modifier.height(6.dp))
 
         // Menu items list
         Column(
             modifier = Modifier
                 .weight(1f)
                 .verticalScroll(rememberScrollState())
-                .padding(horizontal = 12.dp)
+                .padding(horizontal = 10.dp)
         ) {
             // ================= SECTION 1: "নোটস" =================
             DrawerSectionHeader(title = "নোটস")
@@ -156,6 +163,7 @@ fun NavigationDrawerContent(
                 icon = Icons.Outlined.Description,
                 label = "সব নোট",
                 isSelected = currentScreen is Screen.NotesList,
+                modifier = Modifier.testTag("drawer_item_all_notes"),
                 onClick = {
                     onNavigate(Screen.NotesList)
                     onCloseDrawer()
@@ -166,6 +174,7 @@ fun NavigationDrawerContent(
                 icon = Icons.Outlined.Folder,
                 label = "গ্রুপসমূহ",
                 isSelected = currentScreen is Screen.Groups,
+                modifier = Modifier.testTag("drawer_item_groups"),
                 onClick = {
                     onNavigate(Screen.Groups)
                     onCloseDrawer()
@@ -176,6 +185,7 @@ fun NavigationDrawerContent(
                 icon = Icons.Outlined.PushPin,
                 label = "পিন করা নোট",
                 isSelected = currentScreen is Screen.PinnedNotes,
+                modifier = Modifier.testTag("drawer_item_pinned_notes"),
                 onClick = {
                     onNavigate(Screen.PinnedNotes)
                     onCloseDrawer()
@@ -184,8 +194,20 @@ fun NavigationDrawerContent(
 
             DrawerMenuItem(
                 icon = Icons.Outlined.Lock,
+                label = "লক করা নোট",
+                isSelected = currentScreen is Screen.LockedNotes,
+                modifier = Modifier.testTag("drawer_item_locked_notes"),
+                onClick = {
+                    onNavigate(Screen.LockedNotes)
+                    onCloseDrawer()
+                }
+            )
+
+            DrawerMenuItem(
+                icon = Icons.Outlined.VisibilityOff,
                 label = "হাইডেন নোটস",
                 isSelected = currentScreen is Screen.HiddenNotes,
+                modifier = Modifier.testTag("drawer_item_hidden_notes"),
                 onClick = {
                     onNavigate(Screen.HiddenNotes)
                     onCloseDrawer()
@@ -196,18 +218,19 @@ fun NavigationDrawerContent(
                 icon = Icons.Outlined.Delete,
                 label = "ট্র্যাশ",
                 isSelected = currentScreen is Screen.Trash,
+                modifier = Modifier.testTag("drawer_item_trash"),
                 onClick = {
                     onNavigate(Screen.Trash)
                     onCloseDrawer()
                 }
             )
 
-            Spacer(modifier = Modifier.height(10.dp))
+            Spacer(modifier = Modifier.height(5.dp))
             HorizontalDivider(
                 color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
-                modifier = Modifier.padding(horizontal = 6.dp)
+                modifier = Modifier.padding(horizontal = 4.dp)
             )
-            Spacer(modifier = Modifier.height(6.dp))
+            Spacer(modifier = Modifier.height(3.dp))
 
             // ================= SECTION 2: "টুলস" =================
             DrawerSectionHeader(title = "টুলস")
@@ -232,12 +255,12 @@ fun NavigationDrawerContent(
                 }
             )
 
-            Spacer(modifier = Modifier.height(10.dp))
+            Spacer(modifier = Modifier.height(5.dp))
             HorizontalDivider(
                 color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
-                modifier = Modifier.padding(horizontal = 6.dp)
+                modifier = Modifier.padding(horizontal = 4.dp)
             )
-            Spacer(modifier = Modifier.height(6.dp))
+            Spacer(modifier = Modifier.height(3.dp))
 
             // ================= SECTION 3: "কাস্টমাইজেশন" =================
             DrawerSectionHeader(title = "কাস্টমাইজেশন")
@@ -245,26 +268,26 @@ fun NavigationDrawerContent(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(vertical = 2.dp)
-                    .clip(RoundedCornerShape(12.dp))
-                    .padding(horizontal = 12.dp, vertical = 6.dp),
+                    .padding(vertical = 1.dp)
+                    .clip(RoundedCornerShape(10.dp))
+                    .padding(horizontal = 10.dp, vertical = 2.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Spacer(modifier = Modifier.width(14.dp))
+                    Spacer(modifier = Modifier.width(10.dp))
                     Icon(
                         imageVector = if (isDarkMode) Icons.Outlined.DarkMode else Icons.Outlined.LightMode,
                         contentDescription = "Theme Icon",
                         tint = GoldPrimary,
-                        modifier = Modifier.size(22.dp)
+                        modifier = Modifier.size(20.dp)
                     )
-                    Spacer(modifier = Modifier.width(14.dp))
+                    Spacer(modifier = Modifier.width(10.dp))
                     Text(
                         text = if (isDarkMode) "ডার্ক মোড সক্রিয়" else "লাইট মোড সক্রিয়",
-                        fontSize = 15.sp,
+                        fontSize = 14.sp,
                         fontWeight = FontWeight.Medium,
                         color = onSurface
                     )
@@ -282,12 +305,12 @@ fun NavigationDrawerContent(
                 )
             }
 
-            Spacer(modifier = Modifier.height(10.dp))
+            Spacer(modifier = Modifier.height(5.dp))
             HorizontalDivider(
                 color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
-                modifier = Modifier.padding(horizontal = 6.dp)
+                modifier = Modifier.padding(horizontal = 4.dp)
             )
-            Spacer(modifier = Modifier.height(6.dp))
+            Spacer(modifier = Modifier.height(3.dp))
 
             // ================= SECTION 4: "সেটিংস ও তথ্য" =================
             DrawerSectionHeader(title = "সেটিংস ও তথ্য")
@@ -322,20 +345,6 @@ fun NavigationDrawerContent(
                 }
             )
         }
-
-        // Footer
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 20.dp, vertical = 8.dp),
-            contentAlignment = Alignment.CenterStart
-        ) {
-            Text(
-                text = "সংস্করণ ১.০.০ • ১০০% অফলাইন",
-                fontSize = 12.sp,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        }
     }
 }
 
@@ -343,10 +352,10 @@ fun NavigationDrawerContent(
 fun DrawerSectionHeader(title: String) {
     Text(
         text = title,
-        fontSize = 12.sp,
+        fontSize = 11.sp,
         fontWeight = FontWeight.Bold,
         color = GoldPrimary,
-        modifier = Modifier.padding(start = 12.dp, top = 8.dp, bottom = 4.dp)
+        modifier = Modifier.padding(start = 10.dp, top = 4.dp, bottom = 2.dp)
     )
 }
 
@@ -355,6 +364,7 @@ fun DrawerMenuItem(
     icon: ImageVector,
     label: String,
     isSelected: Boolean,
+    modifier: Modifier = Modifier,
     onClick: () -> Unit
 ) {
     val bg = if (isSelected) GoldLight.copy(alpha = 0.15f) else Color.Transparent
@@ -362,40 +372,40 @@ fun DrawerMenuItem(
     val iconTint = if (isSelected) GoldPrimary else MaterialTheme.colorScheme.onSurfaceVariant
 
     Row(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
-            .padding(vertical = 4.dp)
-            .clip(RoundedCornerShape(12.dp))
+            .padding(vertical = 1.dp)
+            .clip(RoundedCornerShape(10.dp))
             .background(bg)
             .clickable { onClick() }
-            .padding(horizontal = 12.dp, vertical = 12.dp),
+            .padding(horizontal = 10.dp, vertical = 5.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         if (isSelected) {
             Box(
                 modifier = Modifier
-                    .width(4.dp)
-                    .height(20.dp)
+                    .width(3.dp)
+                    .height(18.dp)
                     .clip(CircleShape)
                     .background(GoldPrimary)
             )
-            Spacer(modifier = Modifier.width(10.dp))
+            Spacer(modifier = Modifier.width(7.dp))
         } else {
-            Spacer(modifier = Modifier.width(14.dp))
+            Spacer(modifier = Modifier.width(10.dp))
         }
 
         Icon(
             imageVector = icon,
             contentDescription = label,
             tint = iconTint,
-            modifier = Modifier.size(22.dp)
+            modifier = Modifier.size(20.dp)
         )
 
-        Spacer(modifier = Modifier.width(14.dp))
+        Spacer(modifier = Modifier.width(10.dp))
 
         Text(
             text = label,
-            fontSize = 15.sp,
+            fontSize = 14.sp,
             fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
             color = textTint
         )
