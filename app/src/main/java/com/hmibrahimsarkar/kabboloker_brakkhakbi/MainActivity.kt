@@ -31,6 +31,7 @@ import com.hmibrahimsarkar.kabboloker_brakkhakbi.ui.screens.BackupRestoreScreen
 import com.hmibrahimsarkar.kabboloker_brakkhakbi.ui.screens.EditorScreen
 import com.hmibrahimsarkar.kabboloker_brakkhakbi.ui.screens.GroupsScreen
 import com.hmibrahimsarkar.kabboloker_brakkhakbi.ui.screens.HiddenNotesScreen
+import com.hmibrahimsarkar.kabboloker_brakkhakbi.ui.screens.LockedNotesScreen
 import com.hmibrahimsarkar.kabboloker_brakkhakbi.ui.screens.NotesListScreen
 import com.hmibrahimsarkar.kabboloker_brakkhakbi.ui.screens.PrivacyPolicyScreen
 import com.hmibrahimsarkar.kabboloker_brakkhakbi.ui.screens.SettingsAboutScreen
@@ -164,7 +165,18 @@ fun MainAppContent(
                     is Screen.NotesList, is Screen.PinnedNotes -> {
                         NotesListScreen(
                             viewModel = viewModel,
+                            showPinnedOnly = screen is Screen.PinnedNotes,
                             onOpenDrawer = { scope.launch { drawerState.open() } },
+                            onOpenEditor = { noteId ->
+                                viewModel.navigateTo(Screen.Editor(noteId))
+                            }
+                        )
+                    }
+
+                    is Screen.LockedNotes -> {
+                        LockedNotesScreen(
+                            viewModel = viewModel,
+                            onBack = { viewModel.navigateTo(Screen.NotesList) },
                             onOpenEditor = { noteId ->
                                 viewModel.navigateTo(Screen.Editor(noteId))
                             }
