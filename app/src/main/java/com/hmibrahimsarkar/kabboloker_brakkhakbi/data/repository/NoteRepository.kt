@@ -13,6 +13,7 @@ class NoteRepository(
     val activeNotes: Flow<List<NoteEntity>> = noteDao.getAllActiveNotes()
     val allNotes: Flow<List<NoteEntity>> = noteDao.getAllNotes()
     val pinnedNotes: Flow<List<NoteEntity>> = noteDao.getPinnedNotes()
+    val lockedNotes: Flow<List<NoteEntity>> = noteDao.getLockedNotes()
     val hiddenNotes: Flow<List<NoteEntity>> = noteDao.getHiddenNotes()
     val trashedNotes: Flow<List<NoteEntity>> = noteDao.getTrashedNotes()
     val activeNoteCount: Flow<Int> = noteDao.getActiveNoteCount()
@@ -62,11 +63,44 @@ class NoteRepository(
     suspend fun getAllGroupsForBackup(): List<GroupEntity> = groupDao.getAllGroupsForBackup()
 
     suspend fun restoreBackup(notes: List<NoteEntity>, groups: List<GroupEntity>) {
-        if (groups.isNotEmpty()) {
-            groupDao.insertAllGroups(groups)
+        importBackupMerge(notes, groups)
+    }
+
+    suspend fun importBackupMerge(importedNotes: List<NoteEntity>, importedGroups: List<GroupEntity>) {
+        val existingGroups = groupDao.getAllGroupsForBackup()
+        val groupNameMap = existingGroups.associateBy { it.name.trim().lowercase() }
+        val oldGroupIdToNewGroupIdMap = mutableMapOf<Long, Long>()
+
+        importedGroups.forEach { impGroup ->
+            val oldId = impGroup.id
+            val matchedGroup = groupNameMap[impGroup.name.trim().lowercase()]
+            if (matchedGroup != null) {
+                if (oldId > 0) {
+                    oldGroupIdToNewGroupIdMap[oldId] = matchedGroup.id
+                }
+            } else {
+                val newGroupId = groupDao.insertGroup(impGroup.copy(id = 0))
+                if (oldId > 0) {
+                    oldGroupIdToNewGroupIdMap[oldId] = newGroupId
+                }
+            }
         }
-        if (notes.isNotEmpty()) {
-            noteDao.insertAllNotes(notes)
+
+        // Set id = 0 on all imported notes so Room creates new records without replacing or deleting existing notes
+        val notesToInsert = importedNotes.map { note ->
+            val mappedGroupId = if (note.groupId != null) {
+                oldGroupIdToNewGroupIdMap[note.groupId] ?: note.groupId
+            } else null
+
+            note.copy(
+                id = 0,
+                groupId = mappedGroupId,
+                isTrashed = false
+            )
+        }
+
+        if (notesToInsert.isNotEmpty()) {
+            noteDao.insertAllNotes(notesToInsert)
         }
     }
 }
