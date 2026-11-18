@@ -233,7 +233,21 @@ class EditorViewModel(application: Application) : AndroidViewModel(application) 
         updateStyle(isLocked = !_noteState.value.isLocked)
     }
 
+    fun moveToGroup(groupId: Long?) {
+        val current = _noteState.value
+        val activeId = currentNoteId ?: current.id
+        _noteState.value = current.copy(
+            id = activeId,
+            groupId = groupId,
+            updatedAt = System.currentTimeMillis()
+        )
+        viewModelScope.launch {
+            saveNote()
+        }
+    }
+
     fun deleteCurrentNote() {
+        if (_noteState.value.isLocked) return
         viewModelScope.launch {
             val id = _noteState.value.id
             if (id > 0) {
