@@ -17,6 +17,8 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.outlined.Folder
 import androidx.compose.material3.AlertDialog
@@ -110,6 +112,8 @@ fun CreateGroupDialog(
 fun AssignGroupDialog(
     groups: List<GroupEntity>,
     currentGroupId: Long?,
+    title: String = "অন্য গ্রুপে নিন",
+    onCreateGroup: (() -> Unit)? = null,
     onSelectGroup: (groupId: Long?) -> Unit,
     onDismiss: () -> Unit
 ) {
@@ -117,7 +121,7 @@ fun AssignGroupDialog(
         onDismissRequest = onDismiss,
         title = {
             Text(
-                text = "গ্রুপে যোগ করুন",
+                text = title,
                 fontSize = 18.sp,
                 fontWeight = FontWeight.Bold,
                 color = GoldPrimary
@@ -125,7 +129,7 @@ fun AssignGroupDialog(
         },
         text = {
             Column {
-                // Option to remove from group
+                // Option to remove from group / keep ungrouped
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -133,58 +137,104 @@ fun AssignGroupDialog(
                         .background(if (currentGroupId == null) GoldLight.copy(alpha = 0.2f) else MaterialTheme.colorScheme.surfaceVariant)
                         .clickable { onSelectGroup(null) }
                         .padding(12.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Icon(
-                        imageVector = Icons.Outlined.Folder,
-                        contentDescription = "No Group",
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Spacer(modifier = Modifier.width(12.dp))
-                    Text(
-                        text = "কোনো গ্রুপ নেই (সাধারণ)",
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.Medium
-                    )
+                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
+                        Icon(
+                            imageVector = Icons.Outlined.Folder,
+                            contentDescription = "No Group",
+                            tint = if (currentGroupId == null) GoldPrimary else MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Text(
+                            text = "কোনো গ্রুপ নেই (সাধারণ)",
+                            fontSize = 14.sp,
+                            fontWeight = if (currentGroupId == null) FontWeight.Bold else FontWeight.Medium,
+                            color = if (currentGroupId == null) GoldPrimary else MaterialTheme.colorScheme.onSurface
+                        )
+                    }
+                    if (currentGroupId == null) {
+                        Icon(
+                            imageVector = Icons.Filled.Check,
+                            contentDescription = "বর্তমান",
+                            tint = GoldPrimary,
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
                 }
 
                 Spacer(modifier = Modifier.height(8.dp))
 
-                LazyColumn(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(200.dp),
-                    verticalArrangement = Arrangement.spacedBy(6.dp)
-                ) {
-                    items(groups) { group ->
-                        val isSelected = group.id == currentGroupId
+                if (groups.isEmpty()) {
+                    Text(
+                        text = "এখনো কোনো গ্রুপ তৈরি করা হয়নি।",
+                        fontSize = 13.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(vertical = 12.dp)
+                    )
+                } else {
+                    LazyColumn(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(200.dp),
+                        verticalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        items(groups, key = { it.id }) { group ->
+                            val isSelected = group.id == currentGroupId
 
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clip(RoundedCornerShape(10.dp))
-                                .background(if (isSelected) GoldLight.copy(alpha = 0.2f) else MaterialTheme.colorScheme.surfaceVariant)
-                                .clickable { onSelectGroup(group.id) }
-                                .padding(12.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Icon(
-                                imageVector = Icons.Filled.Folder,
-                                contentDescription = "Group",
-                                tint = GoldPrimary
-                            )
-                            Spacer(modifier = Modifier.width(12.dp))
-                            Text(
-                                text = group.name,
-                                fontSize = 14.sp,
-                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                                color = if (isSelected) GoldPrimary else MaterialTheme.colorScheme.onSurface
-                            )
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clip(RoundedCornerShape(10.dp))
+                                    .background(if (isSelected) GoldLight.copy(alpha = 0.2f) else MaterialTheme.colorScheme.surfaceVariant)
+                                    .clickable { onSelectGroup(group.id) }
+                                    .padding(12.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
+                                    Icon(
+                                        imageVector = Icons.Filled.Folder,
+                                        contentDescription = "Group",
+                                        tint = GoldPrimary
+                                    )
+                                    Spacer(modifier = Modifier.width(12.dp))
+                                    Text(
+                                        text = group.name,
+                                        fontSize = 14.sp,
+                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                        color = if (isSelected) GoldPrimary else MaterialTheme.colorScheme.onSurface
+                                    )
+                                }
+                                if (isSelected) {
+                                    Icon(
+                                        imageVector = Icons.Filled.Check,
+                                        contentDescription = "বর্তমান গ্রুপ",
+                                        tint = GoldPrimary,
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                }
+                            }
                         }
                     }
                 }
             }
         },
+        dismissButton = if (onCreateGroup != null) {
+            {
+                TextButton(onClick = onCreateGroup) {
+                    Icon(
+                        imageVector = Icons.Filled.Add,
+                        contentDescription = null,
+                        tint = GoldPrimary,
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("নতুন গ্রুপ", color = GoldPrimary, fontWeight = FontWeight.Bold)
+                }
+            }
+        } else null,
         confirmButton = {
             TextButton(onClick = onDismiss) {
                 Text("বন্ধ করুন", color = GoldPrimary)
