@@ -356,7 +356,10 @@ fun SettingsScreen(
                 Spacer(modifier = Modifier.height(16.dp))
 
                 // --- B. Default Font Style Selector ---
-                val selectedFont = BengaliFonts.getFontByKey(defaultFontFamilyKey)
+                val allFonts by BengaliFonts.fontsFlow.collectAsState()
+                val selectedFont = remember(defaultFontFamilyKey, allFonts) {
+                    BengaliFonts.getFontByKey(defaultFontFamilyKey)
+                }
                 Text(
                     text = "ডিফল্ট ফন্ট স্টাইল (Font Style)",
                     fontSize = 13.5.sp,
@@ -399,6 +402,12 @@ fun SettingsScreen(
                                 fontFamily = selectedFont.fontFamily,
                                 fontSize = 14.sp,
                                 color = MaterialTheme.colorScheme.onSurface
+                            )
+                            Spacer(modifier = Modifier.height(2.dp))
+                            Text(
+                                text = "ট্যাপ করে ফন্ট নির্বাচন বা নতুন বাংলা ফন্ট ইমপোর্ট করুন",
+                                fontSize = 11.5.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
                         Spacer(modifier = Modifier.width(10.dp))
