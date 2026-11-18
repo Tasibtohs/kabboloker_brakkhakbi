@@ -1,5 +1,6 @@
 package com.hmibrahimsarkar.kabboloker_brakkhakbi.ui.screens
 
+import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -47,8 +48,11 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.platform.LocalContext
 import com.hmibrahimsarkar.kabboloker_brakkhakbi.data.local.entity.GroupEntity
+import com.hmibrahimsarkar.kabboloker_brakkhakbi.data.local.entity.NoteEntity
 import com.hmibrahimsarkar.kabboloker_brakkhakbi.ui.components.AppTopBar
+import com.hmibrahimsarkar.kabboloker_brakkhakbi.ui.components.AssignGroupDialog
 import com.hmibrahimsarkar.kabboloker_brakkhakbi.ui.components.CreateGroupDialog
 import com.hmibrahimsarkar.kabboloker_brakkhakbi.ui.components.NoteCardItem
 import com.hmibrahimsarkar.kabboloker_brakkhakbi.ui.theme.AmberAccent
@@ -62,11 +66,13 @@ fun GroupsScreen(
     onBack: () -> Unit = {},
     onOpenEditor: (Long) -> Unit = {}
 ) {
+    val context = LocalContext.current
     val groups by viewModel.allGroups.collectAsState()
     val allNotes by viewModel.allNotes.collectAsState()
     var showCreateDialog by remember { mutableStateOf(false) }
     var editingGroup by remember { mutableStateOf<GroupEntity?>(null) }
     var selectedGroupDetail by remember { mutableStateOf<GroupEntity?>(null) }
+    var noteToMoveGroup by remember { mutableStateOf<NoteEntity?>(null) }
 
     // System Back Handler
     BackHandler {
@@ -184,7 +190,8 @@ fun GroupsScreen(
                                 onTogglePin = { viewModel.togglePinNote(note) },
                                 onToggleLock = { viewModel.toggleLockNote(note) },
                                 onDelete = { viewModel.softDeleteNote(note.id) },
-                                onRemoveFromGroup = { viewModel.removeNoteFromGroup(note) }
+                                onRemoveFromGroup = { viewModel.removeNoteFromGroup(note) },
+                                onMoveToGroup = { noteToMoveGroup = note }
                             )
                         }
                     }
@@ -306,6 +313,26 @@ fun GroupsScreen(
                 showCreateDialog = false
             },
             onDismiss = { showCreateDialog = false }
+        )
+    }
+
+    noteToMoveGroup?.let { targetNote ->
+        AssignGroupDialog(
+            groups = groups,
+            currentGroupId = targetNote.groupId,
+            title = "অন্য গ্রুপে নিন",
+            onCreateGroup = {
+                editingGroup = null
+                showCreateDialog = true
+            },
+            onSelectGroup = { groupId ->
+                viewModel.moveNoteToGroup(targetNote, groupId)
+                val targetName = groups.find { it.id == groupId }?.name
+                val msg = if (targetName != null) "‘$targetName’ গ্রুপে নেওয়া হয়েছে" else "গ্রুপ থেকে সরানো হয়েছে"
+                Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
+                noteToMoveGroup = null
+            },
+            onDismiss = { noteToMoveGroup = null }
         )
     }
 }
