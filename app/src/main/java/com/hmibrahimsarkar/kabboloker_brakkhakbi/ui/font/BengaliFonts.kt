@@ -1,9 +1,18 @@
 package com.hmibrahimsarkar.kabboloker_brakkhakbi.ui.font
 
 import android.content.Context
+import android.net.Uri
 import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
 import com.hmibrahimsarkar.kabboloker_brakkhakbi.R
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withContext
+import java.io.File
 
 data class BengaliFontOption(
     val key: String,
@@ -12,14 +21,17 @@ data class BengaliFontOption(
     val description: String,
     val fontFamily: FontFamily,
     val assetFileName: String,
-    val resId: Int = 0
+    val resId: Int = 0,
+    val isCustom: Boolean = false,
+    val customFilePath: String? = null,
+    val contentHash: String? = null
 )
 
 object BengaliFonts {
 
     private fun font(resId: Int): FontFamily = FontFamily(Font(resId))
 
-    val fonts: List<BengaliFontOption> = listOf(
+    private val builtInFonts: List<BengaliFontOption> = listOf(
         // ১. অনুপম মাহদী (Anupam Mahdi)
         BengaliFontOption(
             key = "anupam_mahdi",
@@ -222,13 +234,119 @@ object BengaliFonts {
         )
     )
 
+    private val importMutex = Mutex()
+    private val _fontsFlow = MutableStateFlow<List<BengaliFontOption>>(builtInFonts)
+    val fontsFlow: StateFlow<List<BengaliFontOption>> = _fontsFlow.asStateFlow()
+
+    val fonts: List<BengaliFontOption>
+        get() = _fontsFlow.value
+
+    @Volatile
+    private var builtInAssetHashes: Map<String, String>? = null
+
     fun init(context: Context? = null) {
         if (context != null) {
-            FontLoader.initFonts(context.applicationContext ?: context, fonts)
+            val appCtx = context.applicationContext ?: context
+            FontLoader.initFonts(appCtx, builtInFonts)
+            val customFonts = FontImportManager.loadPersistedCustomFonts(appCtx)
+            _fontsFlow.value = customFonts + builtInFonts
+            if (builtInAssetHashes == null) {
+                builtInAssetHashes = FontImportManager.computeBuiltInAssetHashes(appCtx, builtInFonts)
+            }
         }
     }
 
+    suspend fun importFontsFromUris(
+        context: Context,
+        uris: List<Uri>
+    ): FontImportBatchResult = withContext(Dispatchers.IO) {
+        importMutex.withLock {
+            val appCtx = context.applicationContext ?: context
+            val storageDir = FontImportManager.getCustomFontsDir(appCtx)
+            val assetHashes = builtInAssetHashes
+                ?: FontImportManager.computeBuiltInAssetHashes(appCtx, builtInFonts).also {
+                    builtInAssetHashes = it
+                }
+
+            val currentCustom = _fontsFlow.value.filter { it.isCustom }.toMutableList()
+            val workingAll = (currentCustom + builtInFonts).toMutableList()
+
+            val importedList = mutableListOf<BengaliFontOption>()
+            val duplicateList = mutableListOf<FontImportSingleResult.Duplicate>()
+            val invalidList = mutableListOf<FontImportSingleResult.Invalid>()
+
+            for (uri in uris) {
+                val fileName = FontImportManager.resolveUriFileName(appCtx, uri)
+                val bytes = FontImportManager.readBytesFromUri(appCtx, uri)
+                if (bytes == null) {
+                    invalidList.add(
+                        FontImportSingleResult.Invalid(
+                            fileName = fileName,
+                            reason = "ফাইলটি পড়া যায়নি"
+                        )
+                    )
+                    continue
+                }
+
+                when (val result = FontImportManager.importFontBytes(
+                    bytes = bytes,
+                    fileName = fileName,
+                    storageDir = storageDir,
+                    existingFonts = workingAll,
+                    existingAssetHashes = assetHashes
+                )) {
+                    is FontImportSingleResult.Imported -> {
+                        val option = result.option
+                        FontLoader.registerFontFamily(option.key, option.fontFamily)
+                        currentCustom.add(0, option)
+                        workingAll.add(0, option)
+                        importedList.add(option)
+                    }
+                    is FontImportSingleResult.Duplicate -> duplicateList.add(result)
+                    is FontImportSingleResult.Invalid -> invalidList.add(result)
+                }
+            }
+
+            if (importedList.isNotEmpty()) {
+                FontImportManager.savePersistedCustomFonts(appCtx, currentCustom)
+                _fontsFlow.value = currentCustom + builtInFonts
+            }
+
+            FontImportBatchResult(
+                imported = importedList,
+                duplicates = duplicateList,
+                invalid = invalidList
+            )
+        }
+    }
+
+    suspend fun deleteCustomFont(context: Context, key: String): Boolean = withContext(Dispatchers.IO) {
+        importMutex.withLock {
+            val appCtx = context.applicationContext ?: context
+            val currentCustom = _fontsFlow.value.filter { it.isCustom }.toMutableList()
+            val target = currentCustom.firstOrNull { it.key == key } ?: return@withLock false
+
+            target.customFilePath?.let { path ->
+                try {
+                    File(path).delete()
+                } catch (_: Exception) {
+                }
+            }
+            FontLoader.removeFontFamily(key)
+            currentCustom.removeAll { it.key == key }
+            FontImportManager.savePersistedCustomFonts(appCtx, currentCustom)
+            _fontsFlow.value = currentCustom + builtInFonts
+            true
+        }
+    }
+
+    internal fun reloadCustomFontsFromDisk(context: Context) {
+        val customFonts = FontImportManager.loadPersistedCustomFonts(context)
+        _fontsFlow.value = customFonts + builtInFonts
+    }
+
     fun getFontByKey(key: String): BengaliFontOption {
+        val all = _fontsFlow.value
         val mappedKey = when (key.lowercase()) {
             "anupam_mahdi", "anupam", "mahdi" -> "anupam_mahdi"
             "alinur_ichamati", "ichamati" -> "alinur_ichamati"
@@ -237,10 +355,14 @@ object BengaliFonts {
             "atma", "atma_medium" -> "atma"
             else -> key.lowercase()
         }
-        val option = fonts.find { it.key == mappedKey }
-            ?: fonts.find { it.key == key.lowercase() }
-            ?: fonts[0]
-        val loadedFont = FontLoader.getFontFamily(option.key)
+        val option = all.find { it.key == mappedKey }
+            ?: all.find { it.key == key }
+            ?: all.find { it.key == key.lowercase() }
+            ?: builtInFonts[0]
+        var loadedFont = FontLoader.getFontFamily(option.key)
+        if (loadedFont == null && option.isCustom && !option.customFilePath.isNullOrBlank()) {
+            loadedFont = FontLoader.loadFontFamilyFromFile(option.key, File(option.customFilePath))
+        }
         return if (loadedFont != null && loadedFont != FontFamily.Default) {
             option.copy(fontFamily = loadedFont)
         } else {
