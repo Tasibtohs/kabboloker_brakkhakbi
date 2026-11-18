@@ -121,6 +121,44 @@ object FontLoader {
     }
 
     /**
+     * Loads a custom TTF/OTF font from an internal File and converts it to a Compose [FontFamily].
+     */
+    fun loadFontFamilyFromFile(
+        key: String,
+        fontFile: java.io.File
+    ): FontFamily? {
+        fontFamilyCache[key]?.let { return it }
+        if (!fontFile.exists() || fontFile.length() == 0L) return null
+        return try {
+            val typeface = Typeface.createFromFile(fontFile)
+            if (typeface != null) {
+                val fontFamily = FontFamily(typeface)
+                fontFamilyCache[key] = fontFamily
+                fontFamily
+            } else {
+                null
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to load custom font from file: ${fontFile.absolutePath}", e)
+            null
+        }
+    }
+
+    /**
+     * Registers or updates a cached [FontFamily] for a given font key.
+     */
+    fun registerFontFamily(key: String, fontFamily: FontFamily) {
+        fontFamilyCache[key] = fontFamily
+    }
+
+    /**
+     * Removes a cached [FontFamily] by key (used when deleting custom imported fonts).
+     */
+    fun removeFontFamily(key: String) {
+        fontFamilyCache.remove(key)
+    }
+
+    /**
      * Retrieves a cached Compose [FontFamily] by key.
      *
      * @param key Font option key (e.g., "galada")
@@ -138,3 +176,4 @@ object FontLoader {
         assetExistenceCache.clear()
     }
 }
+
