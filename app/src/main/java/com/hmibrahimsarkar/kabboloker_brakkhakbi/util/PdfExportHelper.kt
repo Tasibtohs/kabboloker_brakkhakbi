@@ -152,6 +152,31 @@ object PdfExportHelper {
         }
     }
 
+    /**
+     * Builds shareable plain text for one or more notes without inserting placeholder titles for untitled notes.
+     */
+    fun buildShareText(notes: List<NoteEntity>, authorSignatureName: String): String {
+        if (notes.isEmpty()) return ""
+        val signatureText = formatAuthorSignature(authorSignatureName)
+        fun formatSingleBody(note: NoteEntity): String {
+            return when {
+                note.title.isNotBlank() && note.content.isNotBlank() -> "${note.title}\n\n${note.content}"
+                note.title.isNotBlank() -> note.title
+                else -> note.content
+            }
+        }
+        val body = if (notes.size == 1) {
+            formatSingleBody(notes.first())
+        } else {
+            notes.joinToString(separator = "\n\n─────────────────────\n\n") { formatSingleBody(it) }
+        }
+        return when {
+            body.isNotBlank() && signatureText.isNotBlank() -> "$body\n\n$signatureText"
+            body.isNotBlank() -> body
+            else -> signatureText
+        }
+    }
+
     fun toBengaliNumerals(number: Int): String {
         val bnDigits = charArrayOf('০', '১', '২', '৩', '৪', '৫', '৬', '৭', '৮', '৯')
         return number.toString().map { if (it in '0'..'9') bnDigits[it - '0'] else it }.joinToString("")
@@ -290,15 +315,35 @@ object PdfExportHelper {
         val exportDate = SimpleDateFormat("dd MMMM, yyyy", Locale("bn", "BD")).format(Date())
         val formattedAuthorText = formatAuthorSignature(authorName)
 
-        // CSS @font-face definitions for all 20 local Bengali fonts from assets
-        val fontFaceRules = BengaliFonts.fonts.joinToString("\n") { fontOption ->
-            """
-            @font-face {
-                font-family: '${fontOption.key}';
-                src: url('fonts/${fontOption.assetFileName}');
+        // CSS @font-face definitions for bundled asset fonts + used imported custom fonts
+        val usedFontKeys = notes.map { it.fontFamilyKey }.toSet()
+        val fontFaceRules = BengaliFonts.fonts.mapNotNull { fontOption ->
+            if (!fontOption.isCustom) {
+                """
+                @font-face {
+                    font-family: '${fontOption.key}';
+                    src: url('fonts/${fontOption.assetFileName}');
+                }
+                """.trimIndent()
+            } else if (usedFontKeys.contains(fontOption.key) && !fontOption.customFilePath.isNullOrBlank()) {
+                val fontFile = File(fontOption.customFilePath)
+                val srcCss = if (fontFile.exists() && fontFile.length() > 0L) {
+                    val mime = if (fontFile.extension.equals("otf", ignoreCase = true)) "font/otf" else "font/ttf"
+                    val base64 = android.util.Base64.encodeToString(fontFile.readBytes(), android.util.Base64.NO_WRAP)
+                    "url('data:$mime;base64,$base64')"
+                } else {
+                    "url('${fontFile.toURI()}')"
+                }
+                """
+                @font-face {
+                    font-family: '${fontOption.key}';
+                    src: $srcCss;
+                }
+                """.trimIndent()
+            } else {
+                null
             }
-            """.trimIndent()
-        }
+        }.joinToString("\n")
 
         // ================= 1. COVER PAGE (A4 LANDSCAPE - 1 COLUMN CONTENT + 1 COLUMN EMPTY) =================
         val coverPageHtml = if (!isSingleNote) {
@@ -467,12 +512,21 @@ object PdfExportHelper {
                 fun renderTocItems(subList: List<NoteEntity>, offset: Int): String {
                     return subList.mapIndexed { idx, note ->
                         val globalIndex = offset + idx + 1
-                        val title = if (note.title.isNotBlank()) note.title else "শিরোনামহীন কবিতা"
+                        val tocTitle = when {
+                            note.title.isNotBlank() -> note.title
+                            note.content.isNotBlank() -> note.content.lineSequence().firstOrNull { it.isNotBlank() }?.trim()?.take(35) ?: ""
+                            else -> ""
+                        }
+                        val tocLabel = if (tocTitle.isNotBlank()) {
+                            "${toBengaliNumerals(globalIndex)}. ${escapeHtml(tocTitle)}"
+                        } else {
+                            "${toBengaliNumerals(globalIndex)}."
+                        }
                         val pageNum = notePageMap[note.id] ?: globalIndex
                         val bnPageNum = toBengaliNumerals(pageNum)
                         """
                         <div class="toc-item">
-                            <span class="toc-item-title">${toBengaliNumerals(globalIndex)}. ${escapeHtml(title)}</span>
+                            <span class="toc-item-title">$tocLabel</span>
                             <span class="toc-leader"></span>
                             <span class="toc-item-page">পাতা $bnPageNum</span>
                         </div>
@@ -553,17 +607,19 @@ object PdfExportHelper {
         }
 
         fun renderFullWidthHeader(note: NoteEntity): String {
-            val title = if (note.title.isNotBlank()) note.title else "শিরোনামহীন কবিতা"
             val noteDate = SimpleDateFormat("dd MMMM, yyyy • hh:mm a", Locale("bn", "BD")).format(Date(note.createdAt))
             val updatedDate = SimpleDateFormat("dd MMMM, yyyy • hh:mm a", Locale("bn", "BD")).format(Date(note.updatedAt))
 
             val fontOption = BengaliFonts.getFontByKey(note.fontFamilyKey)
             val fontCssFamily = "'${fontOption.key}', 'Tiro Bangla', serif, sans-serif"
             val readableTitleColor = ensureReadableTextColor(note.titleColorHex, defaultColorHex = "#B8860B")
+            val titleHtml = if (note.title.isNotBlank()) {
+                """<h2 class="fullwidth-poem-title" style="color: $readableTitleColor; font-family: $fontCssFamily;">${escapeHtml(note.title)}</h2>"""
+            } else ""
 
             return """
             <div class="fullwidth-poem-header">
-                <h2 class="fullwidth-poem-title" style="color: $readableTitleColor; font-family: $fontCssFamily;">${escapeHtml(title)}</h2>
+                $titleHtml
                 <div class="poem-divider">
                     <span class="poem-divider-line"></span>
                     <span class="poem-symbol">❦</span>
@@ -578,7 +634,6 @@ object PdfExportHelper {
         }
 
         fun renderSinglePoemCardContent(note: NoteEntity, leafPageNum: Int): String {
-            val title = if (note.title.isNotBlank()) note.title else "শিরোনামহীন কবিতা"
             val content = if (note.content.isNotBlank()) note.content else "(ফাঁকা কবিতা)"
 
             val noteDate = SimpleDateFormat("dd MMMM, yyyy • hh:mm a", Locale("bn", "BD")).format(Date(note.createdAt))
@@ -600,7 +655,9 @@ object PdfExportHelper {
 
             val (fontSizePx, lineHeightRatio) = calculateColumnTypography(content, note.fontSizeSp, note.lineSpacingMultiplier)
 
-            val safeTitle = escapeHtml(title)
+            val titleHtml = if (note.title.isNotBlank()) {
+                """<h3 class="leaf-poem-title" style="color: $readableTitleColor; font-family: $fontCssFamily;">${escapeHtml(note.title)}</h3>"""
+            } else ""
             val safeContent = escapeHtml(content)
             val leafPageNumBn = toBengaliNumerals(leafPageNum)
             val authorHtml = renderAuthorSignature(fontCssFamily)
@@ -608,7 +665,7 @@ object PdfExportHelper {
             return """
             <div class="column-leaf-card">
                 <div class="leaf-header">
-                    <h3 class="leaf-poem-title" style="color: $readableTitleColor; font-family: $fontCssFamily;">$safeTitle</h3>
+                    $titleHtml
                     <div class="leaf-divider">
                         <span class="leaf-divider-line"></span>
                         <span class="leaf-symbol">❦</span>
@@ -693,7 +750,6 @@ object PdfExportHelper {
 
                 is PdfPageItem.SpanningPoemSpread -> {
                     val note = pageItem.note
-                    val title = if (note.title.isNotBlank()) note.title else "শিরোনামহীন কবিতা"
                     val noteDate = SimpleDateFormat("dd MMMM, yyyy • hh:mm a", Locale("bn", "BD")).format(Date(note.createdAt))
                     val updatedDate = SimpleDateFormat("dd MMMM, yyyy • hh:mm a", Locale("bn", "BD")).format(Date(note.updatedAt))
 
@@ -713,7 +769,9 @@ object PdfExportHelper {
 
                     val (fontSizePx, lineHeightRatio) = calculateSpanningTypography(note.content, note.fontSizeSp, note.lineSpacingMultiplier)
 
-                    val safeTitle = escapeHtml(title)
+                    val titleHtml = if (note.title.isNotBlank()) {
+                        """<h3 class="flow-poem-title" style="color: $readableTitleColor; font-family: $fontCssFamily;">${escapeHtml(note.title)}</h3>"""
+                    } else ""
                     val safeContent = escapeHtml(note.content)
 
                     val leftPageBn = toBengaliNumerals(pageItem.leftPageNum)
@@ -743,7 +801,7 @@ object PdfExportHelper {
                                     <div class="spanning-card">
                                         <div class="multi-column-flow-container">
                                             <div class="flow-header">
-                                                <h3 class="flow-poem-title" style="color: $readableTitleColor; font-family: $fontCssFamily;">$safeTitle</h3>
+                                                $titleHtml
                                                 <div class="leaf-divider">
                                                     <span class="leaf-divider-line"></span>
                                                     <span class="leaf-symbol">❦</span>
@@ -787,7 +845,6 @@ object PdfExportHelper {
 
                 is PdfPageItem.SingleNoteStandalone -> {
                     val note = pageItem.note
-                    val title = if (note.title.isNotBlank()) note.title else "শিরোনামহীন কবিতা"
                     val noteDate = SimpleDateFormat("dd MMMM, yyyy • hh:mm a", Locale("bn", "BD")).format(Date(note.createdAt))
                     val updatedDate = SimpleDateFormat("dd MMMM, yyyy • hh:mm a", Locale("bn", "BD")).format(Date(note.updatedAt))
 
@@ -807,7 +864,9 @@ object PdfExportHelper {
 
                     val (fontSizePx, lineHeightRatio) = calculateSingleNoteTypography(note.content, note.fontSizeSp, note.lineSpacingMultiplier)
 
-                    val safeTitle = escapeHtml(title)
+                    val titleHtml = if (note.title.isNotBlank()) {
+                        """<h2 class="flow-poem-title" style="color: $readableTitleColor; font-family: $fontCssFamily; font-size: 22px;">${escapeHtml(note.title)}</h2>"""
+                    } else ""
                     val safeContent = escapeHtml(note.content)
                     val authorHtml = renderAuthorSignature(fontCssFamily)
 
@@ -833,7 +892,7 @@ object PdfExportHelper {
                                     <div class="single-note-unified-frame">
                                         <div class="multi-column-flow-container">
                                             <div class="flow-header">
-                                                <h2 class="flow-poem-title" style="color: $readableTitleColor; font-family: $fontCssFamily; font-size: 22px;">$safeTitle</h2>
+                                                $titleHtml
                                                 <div class="leaf-divider">
                                                     <span class="leaf-divider-line"></span>
                                                     <span class="leaf-symbol">❦</span>
