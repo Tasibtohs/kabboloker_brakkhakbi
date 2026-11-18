@@ -1,5 +1,6 @@
 package com.hmibrahimsarkar.kabboloker_brakkhakbi.ui.screens
 
+import android.content.Intent
 import android.widget.Toast
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
@@ -110,10 +111,13 @@ import com.hmibrahimsarkar.kabboloker_brakkhakbi.data.local.entity.GroupEntity
 import com.hmibrahimsarkar.kabboloker_brakkhakbi.data.local.entity.NoteEntity
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Folder
+import androidx.compose.material.icons.outlined.Share
 import androidx.compose.material.icons.outlined.VisibilityOff
 import androidx.compose.material.icons.outlined.ViewAgenda
+import com.hmibrahimsarkar.kabboloker_brakkhakbi.util.PdfExportHelper
 import com.hmibrahimsarkar.kabboloker_brakkhakbi.ui.components.AppTopBar
 import com.hmibrahimsarkar.kabboloker_brakkhakbi.ui.components.AssignGroupDialog
+import com.hmibrahimsarkar.kabboloker_brakkhakbi.ui.components.CreateGroupDialog
 import com.hmibrahimsarkar.kabboloker_brakkhakbi.ui.components.DeleteConfirmationDialog
 import com.hmibrahimsarkar.kabboloker_brakkhakbi.ui.components.InfoBar
 import com.hmibrahimsarkar.kabboloker_brakkhakbi.ui.components.NoteCardItem
@@ -157,30 +161,37 @@ private val PremiumSortIconVector: ImageVector by lazy {
 @Composable
 fun NotesListScreen(
     viewModel: MainViewModel,
+    showPinnedOnly: Boolean = false,
     onOpenDrawer: () -> Unit,
     onOpenEditor: (noteId: Long?) -> Unit
 ) {
-    val notes by viewModel.notesList.collectAsState()
+    val allActiveNotes by viewModel.notesList.collectAsState()
+    val notes = remember(allActiveNotes, showPinnedOnly) {
+        if (showPinnedOnly) allActiveNotes.filter { it.isPinned } else allActiveNotes
+    }
     val noteCount by viewModel.activeNoteCount.collectAsState()
     val searchQuery by viewModel.searchQuery.collectAsState()
     val selectedGroupId by viewModel.selectedGroupId.collectAsState()
     val allGroups by viewModel.allGroups.collectAsState()
     val selectedNoteIds by viewModel.selectedNoteIds.collectAsState()
     val isDarkMode by viewModel.isDarkMode.collectAsState()
+    val authorSignatureName by viewModel.authorSignatureName.collectAsState()
 
     val savedPasswordHash by viewModel.appPasswordHash.collectAsState()
     val currentViewMode by viewModel.viewModePreference.collectAsState()
 
     val context = LocalContext.current
     var showAssignGroupDialog by remember { mutableStateOf(false) }
+    var showCreateGroupDialog by remember { mutableStateOf(false) }
+    var noteToMoveGroup by remember { mutableStateOf<NoteEntity?>(null) }
     var showDeleteConfirmModal by remember { mutableStateOf(false) }
     var noteToDelete by remember { mutableStateOf<NoteEntity?>(null) }
 
     Scaffold(
         topBar = {
             AppTopBar(
-                title = "কাব্যলোকের ব্রক্ষকবি",
-                subtitle = "কবি ও শব্দের আসর",
+                title = if (showPinnedOnly) "পিন করা নোট" else "কাব্যলোকের ব্রক্ষকবি",
+                subtitle = if (showPinnedOnly) "গুরুত্বপূর্ণ ও প্রিয় কবিতাসমূহ" else "কবি ও শব্দের আসর",
                 navigationIcon = {
                     IconButton(onClick = onOpenDrawer) {
                         Icon(
@@ -324,7 +335,8 @@ fun NotesListScreen(
                 .background(MaterialTheme.colorScheme.background)
         ) {
             // Info Bar (Total Notes Count & Date)
-            InfoBar(leftText = "$noteCount টি কবিতা ও নোট")
+            val displayCount = if (showPinnedOnly) notes.size else noteCount
+            InfoBar(leftText = if (showPinnedOnly) "$displayCount টি পিন করা নোট" else "$displayCount টি কবিতা ও নোট")
 
             // Search Bar with Circular Pencil Button on the right
             Row(
@@ -550,7 +562,7 @@ fun NotesListScreen(
                         // Action Buttons Row
                         Row(
                             modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceEvenly,
+                            horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             // Assign Group
@@ -559,6 +571,31 @@ fun NotesListScreen(
                                 label = "গ্রুপ",
                                 tint = GoldPrimary,
                                 onClick = { showAssignGroupDialog = true }
+                            )
+
+                            // Share Notes
+                            SelectionActionButton(
+                                icon = Icons.Outlined.Share,
+                                label = "শেয়ার",
+                                tint = GoldPrimary,
+                                onClick = {
+                                    val selectedNotes = notes.filter { selectedNoteIds.contains(it.id) }
+                                    if (selectedNotes.isNotEmpty()) {
+                                        val shareText = PdfExportHelper.buildShareText(selectedNotes, authorSignatureName)
+
+                                        val shareIntent = Intent(Intent.ACTION_SEND).apply {
+                                            type = "text/plain"
+                                            val subject = if (selectedNotes.size == 1) {
+                                                selectedNotes.first().title.ifBlank { "কবিতা" }
+                                            } else {
+                                                "${selectedNotes.size} টি কবিতা"
+                                            }
+                                            putExtra(Intent.EXTRA_SUBJECT, subject)
+                                            putExtra(Intent.EXTRA_TEXT, shareText)
+                                        }
+                                        context.startActivity(Intent.createChooser(shareIntent, "নোট শেয়ার করুন"))
+                                    }
+                                }
                             )
 
                             // Hide Note
@@ -578,7 +615,15 @@ fun NotesListScreen(
                                 icon = Icons.Outlined.Delete,
                                 label = "মুছুন",
                                 tint = Color(0xFFE53935),
-                                onClick = { showDeleteConfirmModal = true }
+                                onClick = {
+                                    val selectedNotes = notes.filter { selectedNoteIds.contains(it.id) }
+                                    val lockedCount = selectedNotes.count { it.isLocked }
+                                    if (lockedCount == selectedNotes.size && selectedNotes.isNotEmpty()) {
+                                        Toast.makeText(context, "লক করা নোট ডিলিট করা যাবে না", Toast.LENGTH_SHORT).show()
+                                    } else {
+                                        showDeleteConfirmModal = true
+                                    }
+                                }
                             )
                         }
                     }
@@ -626,7 +671,11 @@ fun NotesListScreen(
 
                         Spacer(modifier = Modifier.height(20.dp))
 
-                        val titleText = if (searchQuery.isNotEmpty()) "'$searchQuery' সম্পর্কিত কোনো কবিতা নেই" else "কাব্যলোকের শূন্য ক্যানভাস"
+                        val titleText = when {
+                            searchQuery.isNotEmpty() -> "'$searchQuery' সম্পর্কিত কোনো কবিতা নেই"
+                            showPinnedOnly -> "কোনো পিন করা নোট নেই"
+                            else -> "কাব্যলোকের শূন্য ক্যানভাস"
+                        }
                         Text(
                             text = titleText,
                             fontSize = 20.sp,
@@ -638,10 +687,10 @@ fun NotesListScreen(
 
                         Spacer(modifier = Modifier.height(8.dp))
 
-                        val subText = if (searchQuery.isNotEmpty()) {
-                            "অন্য কোনো শব্দ বা শিরোনাম দিয়ে আবার সন্ধান করুন।"
-                        } else {
-                            "এখনো কোনো কবিতা বা সাহিত্য যুক্ত করা হয়নি।\nআপনার অনুভূতির প্রথম কাব্যমালা সাজাতে নিচের বাটনে ট্যাপ করুন।"
+                        val subText = when {
+                            searchQuery.isNotEmpty() -> "অন্য কোনো শব্দ বা শিরোনাম দিয়ে আবার সন্ধান করুন।"
+                            showPinnedOnly -> "যেকোনো নোট কার্ড বা এডিটরের পিন আইকনে ট্যাপ করলে এখানে দেখতে পাবেন।"
+                            else -> "এখনো কোনো কবিতা বা সাহিত্য যুক্ত করা হয়নি।\nআপনার অনুভূতির প্রথম কাব্যমালা সাজাতে নিচের বাটনে ট্যাপ করুন।"
                         }
                         Text(
                             text = subText,
@@ -742,6 +791,9 @@ fun NotesListScreen(
                                         },
                                         onDelete = {
                                             noteToDelete = note
+                                        },
+                                        onMoveToGroup = {
+                                            noteToMoveGroup = note
                                         }
                                     )
                                 }
@@ -784,6 +836,9 @@ fun NotesListScreen(
                                         },
                                         onDelete = {
                                             noteToDelete = note
+                                        },
+                                        onMoveToGroup = {
+                                            noteToMoveGroup = note
                                         }
                                     )
                                 }
@@ -826,6 +881,9 @@ fun NotesListScreen(
                                         },
                                         onDelete = {
                                             noteToDelete = note
+                                        },
+                                        onMoveToGroup = {
+                                            noteToMoveGroup = note
                                         }
                                     )
                                 }
@@ -837,26 +895,67 @@ fun NotesListScreen(
         }
     }
 
-    // Assign Group Dialog
+    // Assign Group Dialog (Selection Mode)
     if (showAssignGroupDialog) {
+        val selectedGroupIds = notes.filter { selectedNoteIds.contains(it.id) }.map { it.groupId }.distinct()
+        val commonGroupId = if (selectedGroupIds.size == 1) selectedGroupIds.first() else null
         AssignGroupDialog(
             groups = allGroups,
-            currentGroupId = null,
+            currentGroupId = commonGroupId,
+            title = "অন্য গ্রুপে নিন",
+            onCreateGroup = { showCreateGroupDialog = true },
             onSelectGroup = { groupId ->
                 viewModel.assignSelectedNotesToGroup(groupId)
+                val targetName = allGroups.find { it.id == groupId }?.name
+                val msg = if (targetName != null) "‘$targetName’ গ্রুপে নেওয়া হয়েছে" else "গ্রুপ থেকে সরানো হয়েছে"
+                Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
                 showAssignGroupDialog = false
             },
             onDismiss = { showAssignGroupDialog = false }
         )
     }
 
+    // Move Single Note to Another Group Dialog
+    noteToMoveGroup?.let { targetNote ->
+        AssignGroupDialog(
+            groups = allGroups,
+            currentGroupId = targetNote.groupId,
+            title = "অন্য গ্রুপে নিন",
+            onCreateGroup = { showCreateGroupDialog = true },
+            onSelectGroup = { groupId ->
+                viewModel.moveNoteToGroup(targetNote, groupId)
+                val targetName = allGroups.find { it.id == groupId }?.name
+                val msg = if (targetName != null) "‘$targetName’ গ্রুপে নেওয়া হয়েছে" else "গ্রুপ থেকে সরানো হয়েছে"
+                Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
+                noteToMoveGroup = null
+            },
+            onDismiss = { noteToMoveGroup = null }
+        )
+    }
+
+    if (showCreateGroupDialog) {
+        CreateGroupDialog(
+            onConfirm = { name ->
+                viewModel.saveGroup(name = name)
+                showCreateGroupDialog = false
+            },
+            onDismiss = { showCreateGroupDialog = false }
+        )
+    }
+
     // Delete Confirmation Modal for Multi-Select
     if (showDeleteConfirmModal) {
+        val selectedNotes = notes.filter { selectedNoteIds.contains(it.id) }
+        val deletableCount = selectedNotes.count { !it.isLocked }
+        val lockedCount = selectedNotes.count { it.isLocked }
         DeleteConfirmationDialog(
-            noteCount = selectedNoteIds.size,
+            noteCount = deletableCount,
             onConfirm = {
                 viewModel.softDeleteSelectedNotes()
                 showDeleteConfirmModal = false
+                if (lockedCount > 0) {
+                    Toast.makeText(context, "লক করা $lockedCount টি নোট ডিলিট করা হয়নি", Toast.LENGTH_SHORT).show()
+                }
             },
             onDismiss = { showDeleteConfirmModal = false }
         )
@@ -864,14 +963,19 @@ fun NotesListScreen(
 
     // Delete Confirmation Modal for Single Note
     if (noteToDelete != null) {
-        DeleteConfirmationDialog(
-            noteCount = 1,
-            onConfirm = {
-                viewModel.softDeleteNote(noteToDelete!!.id)
-                noteToDelete = null
-            },
-            onDismiss = { noteToDelete = null }
-        )
+        if (noteToDelete!!.isLocked) {
+            Toast.makeText(context, "লক করা নোট ডিলিট করা যাবে না", Toast.LENGTH_SHORT).show()
+            noteToDelete = null
+        } else {
+            DeleteConfirmationDialog(
+                noteCount = 1,
+                onConfirm = {
+                    viewModel.softDeleteNote(noteToDelete!!.id)
+                    noteToDelete = null
+                },
+                onDismiss = { noteToDelete = null }
+            )
+        }
     }
 }
 
@@ -889,9 +993,9 @@ private fun SelectionActionButton(
         modifier = Modifier.clip(RoundedCornerShape(14.dp))
     ) {
         Row(
-            modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
+            modifier = Modifier.padding(horizontal = 10.dp, vertical = 7.dp),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(6.dp)
+            horizontalArrangement = Arrangement.spacedBy(4.dp)
         ) {
             Icon(
                 imageVector = icon,
