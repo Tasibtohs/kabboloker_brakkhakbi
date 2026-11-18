@@ -167,16 +167,26 @@ fun HideNotesPickerModal(
                                     )
                                     Spacer(modifier = Modifier.width(8.dp))
                                     Column(modifier = Modifier.weight(1f)) {
-                                        Text(
-                                            text = if (note.title.isNotBlank()) note.title else "শিরোনামহীন",
-                                            fontWeight = FontWeight.Bold,
-                                            fontSize = 15.sp,
-                                            maxLines = 1,
-                                            overflow = TextOverflow.Ellipsis
-                                        )
+                                        if (note.title.isNotBlank()) {
+                                            Text(
+                                                text = note.title,
+                                                fontWeight = FontWeight.Bold,
+                                                fontSize = 15.sp,
+                                                maxLines = 1,
+                                                overflow = TextOverflow.Ellipsis
+                                            )
+                                        }
                                         if (note.content.isNotBlank()) {
                                             Text(
                                                 text = note.content,
+                                                fontSize = if (note.title.isNotBlank()) 12.sp else 14.sp,
+                                                color = if (note.title.isNotBlank()) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface,
+                                                maxLines = 1,
+                                                overflow = TextOverflow.Ellipsis
+                                            )
+                                        } else if (note.title.isBlank()) {
+                                            Text(
+                                                text = getBengaliFormattedDateTime(note.updatedAt),
                                                 fontSize = 12.sp,
                                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                                 maxLines = 1,
