@@ -21,6 +21,9 @@ interface NoteDao {
     @Query("SELECT * FROM notes WHERE isPinned = 1 AND isTrashed = 0 AND isHidden = 0 ORDER BY updatedAt DESC")
     fun getPinnedNotes(): Flow<List<NoteEntity>>
 
+    @Query("SELECT * FROM notes WHERE isLocked = 1 AND isTrashed = 0 AND isHidden = 0 ORDER BY isPinned DESC, updatedAt DESC")
+    fun getLockedNotes(): Flow<List<NoteEntity>>
+
     @Query("SELECT * FROM notes WHERE isHidden = 1 AND isTrashed = 0 ORDER BY updatedAt DESC")
     fun getHiddenNotes(): Flow<List<NoteEntity>>
 
@@ -57,7 +60,7 @@ interface NoteDao {
     @Query("DELETE FROM notes WHERE id = :id")
     suspend fun deleteNoteById(id: Long)
 
-    @Query("UPDATE notes SET isTrashed = 1, updatedAt = :timestamp WHERE id = :id")
+    @Query("UPDATE notes SET isTrashed = 1, updatedAt = :timestamp WHERE id = :id AND isLocked = 0")
     suspend fun softDeleteNote(id: Long, timestamp: Long = System.currentTimeMillis())
 
     @Query("UPDATE notes SET isTrashed = 0, updatedAt = :timestamp WHERE id = :id")
