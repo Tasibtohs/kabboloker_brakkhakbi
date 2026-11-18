@@ -232,4 +232,28 @@ class PdfExportHelperTest {
         assertEquals("৭", PdfExportHelper.toBengaliNumerals(7))
         assertEquals("২০২৪", PdfExportHelper.toBengaliNumerals(2024))
     }
+
+    @Test
+    fun testUntitledNotesInBookletAndSinglePdfDoNotShowPlaceholderTitle() {
+        val shortUntitled = createDummyNote(1, "", "প্রথম লাইন কবিতার\nদ্বিতীয় লাইন")
+        val longUntitledLines = (1..40).joinToString("\n") { "দীর্ঘ চরণ $it" }
+        val longUntitled = createDummyNote(2, "   ", longUntitledLines)
+        val emptyUntitled = createDummyNote(3, "", "")
+
+        val bookletHtml = PdfExportHelper.buildHtmlForNotes(
+            listOf(shortUntitled, longUntitled, emptyUntitled),
+            isSingleNote = false
+        )
+        assertFalse(bookletHtml.contains("শিরোনামহীন"))
+        assertFalse(bookletHtml.contains("<h3 class=\"leaf-poem-title\""))
+        assertFalse(bookletHtml.contains("<h3 class=\"flow-poem-title\""))
+        assertTrue(bookletHtml.contains("১. প্রথম লাইন কবিতার"))
+        assertTrue(bookletHtml.contains("২. দীর্ঘ চরণ 1"))
+        assertTrue(bookletHtml.contains("৩.</span>"))
+
+        val singleHtml = PdfExportHelper.buildHtmlForNotes(listOf(shortUntitled), isSingleNote = true)
+        assertFalse(singleHtml.contains("শিরোনামহীন"))
+        assertFalse(singleHtml.contains("<h2 class=\"flow-poem-title\""))
+        assertTrue(singleHtml.contains("প্রথম লাইন কবিতার"))
+    }
 }
