@@ -1,5 +1,7 @@
 package com.hmibrahimsarkar.kabboloker_brakkhakbi.ui.components
 
+import android.widget.Toast
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -57,6 +59,9 @@ import androidx.compose.animation.core.spring
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.platform.testTag
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.remember
 import com.hmibrahimsarkar.kabboloker_brakkhakbi.ui.theme.GoldGlow
 
 @OptIn(ExperimentalFoundationApi::class)
@@ -73,8 +78,10 @@ fun NoteCardItem(
     onToggleLock: () -> Unit = {},
     onDelete: () -> Unit = {},
     onRemoveFromGroup: (() -> Unit)? = null,
+    onMoveToGroup: (() -> Unit)? = null,
     onUnhide: (() -> Unit)? = null
 ) {
+    val context = LocalContext.current
     val cardBg = MaterialTheme.colorScheme.surface
 
     val scale by animateFloatAsState(
@@ -96,7 +103,8 @@ fun NoteCardItem(
 
     val titleColor = resolveAdaptiveTitleColor(note.titleColorHex)
 
-    val fontOption = BengaliFonts.getFontByKey(note.fontFamilyKey)
+    val allFonts by BengaliFonts.fontsFlow.collectAsState()
+    val fontOption = remember(note.fontFamilyKey, allFonts) { BengaliFonts.getFontByKey(note.fontFamilyKey) }
 
     Card(
         modifier = modifier
@@ -151,6 +159,9 @@ fun NoteCardItem(
                                 modifier = Modifier
                                     .clip(RoundedCornerShape(8.dp))
                                     .background(AmberAccent.copy(alpha = 0.15f))
+                                    .then(
+                                        if (onMoveToGroup != null) Modifier.clickable { onMoveToGroup() } else Modifier
+                                    )
                                     .padding(horizontal = 8.dp, vertical = 3.dp)
                             ) {
                                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -174,6 +185,23 @@ fun NoteCardItem(
                         }
 
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            if (onRemoveFromGroup != null && onMoveToGroup != null) {
+                                Box(
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(50))
+                                        .background(GoldPrimary.copy(alpha = 0.15f))
+                                        .clickable { onMoveToGroup() }
+                                        .padding(horizontal = 8.dp, vertical = 3.dp)
+                                        .testTag("card_move_group_chip_${note.id}")
+                                ) {
+                                    Text(
+                                        text = "গ্রুপ বদলান",
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = GoldPrimary
+                                    )
+                                }
+                            }
                             if (onRemoveFromGroup != null) {
                                 Box(
                                     modifier = Modifier
@@ -211,80 +239,159 @@ fun NoteCardItem(
                     }
                 }
 
-                // Top Row: Title on the left, Pin/Lock badges on the top right corner
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    val titleText = if (note.title.isNotBlank()) note.title else "শিরোনামহীন"
-                    Text(
-                        text = titleText,
-                        fontSize = 19.sp,
-                        fontWeight = FontWeight.Bold,
-                        fontFamily = fontOption.fontFamily,
-                        color = titleColor,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.weight(1f, fill = false)
-                    )
+                val hasTitle = note.title.isNotBlank()
+                val showTopBadges = (!isInSelectionMode && (note.isLocked || note.isPinned)) || isInSelectionMode || isSelected
 
-                    // Top Right Corner Badges (Pin, Lock & Selection Checkmark)
+                if (hasTitle) {
+                    // Top Row: Title on the left, Pin/Lock badges on the top right corner
                     Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        if (!isInSelectionMode) {
-                            if (note.isLocked) {
-                                Icon(
-                                    imageVector = Icons.Filled.Lock,
-                                    contentDescription = "Locked",
-                                    tint = Color(0xFFC62828),
-                                    modifier = Modifier.size(18.dp)
-                                )
+                        Text(
+                            text = note.title,
+                            fontSize = 19.sp,
+                            fontWeight = FontWeight.Bold,
+                            fontFamily = fontOption.fontFamily,
+                            color = titleColor,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier
+                                .weight(1f, fill = false)
+                                .testTag("note_card_title_${note.id}")
+                        )
+
+                        if (showTopBadges) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                            ) {
+                                if (!isInSelectionMode) {
+                                    if (note.isLocked) {
+                                        Icon(
+                                            imageVector = Icons.Filled.Lock,
+                                            contentDescription = "Locked",
+                                            tint = Color(0xFFC62828),
+                                            modifier = Modifier.size(18.dp)
+                                        )
+                                    }
+                                    if (note.isPinned) {
+                                        Icon(
+                                            imageVector = Icons.Filled.PushPin,
+                                            contentDescription = "Pinned",
+                                            tint = AmberAccent,
+                                            modifier = Modifier.size(18.dp)
+                                        )
+                                    }
+                                }
+                                if (isInSelectionMode || isSelected) {
+                                    Icon(
+                                        imageVector = if (isSelected) Icons.Filled.CheckCircle else Icons.Outlined.CheckCircleOutline,
+                                        contentDescription = if (isSelected) "Selected" else "Not Selected",
+                                        tint = if (isSelected) GoldPrimary else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                }
                             }
-                            if (note.isPinned) {
-                                Icon(
-                                    imageVector = Icons.Filled.PushPin,
-                                    contentDescription = "Pinned",
-                                    tint = AmberAccent,
-                                    modifier = Modifier.size(18.dp)
-                                )
-                            }
-                        }
-                        if (isInSelectionMode || isSelected) {
-                            Icon(
-                                imageVector = if (isSelected) Icons.Filled.CheckCircle else Icons.Outlined.CheckCircleOutline,
-                                contentDescription = if (isSelected) "Selected" else "Not Selected",
-                                tint = if (isSelected) GoldPrimary else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
-                                modifier = Modifier.size(20.dp)
-                            )
                         }
                     }
+
+                    Spacer(modifier = Modifier.height(6.dp))
                 }
 
-                Spacer(modifier = Modifier.height(6.dp))
+                // Middle: Note Content Preview (or locked indicator), directly at top if title is blank
+                val previewModifier = Modifier.testTag("note_card_preview_${note.id}")
+                if (!hasTitle && showTopBadges) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.Top
+                    ) {
+                        if (note.isLocked) {
+                            Text(
+                                text = "🔒 এই কবিতাটি সুরক্ষিত রয়েছে",
+                                fontSize = 13.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f),
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .padding(end = 8.dp)
+                                    .then(previewModifier)
+                            )
+                        } else {
+                            val previewText = if (note.content.isNotBlank()) note.content else "কোনো লেখা নেই..."
+                            Text(
+                                text = previewText,
+                                fontSize = 14.sp,
+                                fontFamily = fontOption.fontFamily,
+                                color = resolveAdaptiveTextColor(note.textColorHex).copy(alpha = 0.85f),
+                                maxLines = 2,
+                                overflow = TextOverflow.Ellipsis,
+                                lineHeight = 20.sp,
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .padding(end = 8.dp)
+                                    .then(previewModifier)
+                            )
+                        }
 
-                // Middle: Note Content Preview (or locked indicator)
-                if (note.isLocked) {
-                    Text(
-                        text = "🔒 এই কবিতাটি সুরক্ষিত রয়েছে",
-                        fontSize = 13.sp,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f),
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            if (!isInSelectionMode) {
+                                if (note.isLocked) {
+                                    Icon(
+                                        imageVector = Icons.Filled.Lock,
+                                        contentDescription = "Locked",
+                                        tint = Color(0xFFC62828),
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                }
+                                if (note.isPinned) {
+                                    Icon(
+                                        imageVector = Icons.Filled.PushPin,
+                                        contentDescription = "Pinned",
+                                        tint = AmberAccent,
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                }
+                            }
+                            if (isInSelectionMode || isSelected) {
+                                Icon(
+                                    imageVector = if (isSelected) Icons.Filled.CheckCircle else Icons.Outlined.CheckCircleOutline,
+                                    contentDescription = if (isSelected) "Selected" else "Not Selected",
+                                    tint = if (isSelected) GoldPrimary else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
+                        }
+                    }
                 } else {
-                    val previewText = if (note.content.isNotBlank()) note.content else "কোনো লেখা নেই..."
-                    Text(
-                        text = previewText,
-                        fontSize = 14.sp,
-                        fontFamily = fontOption.fontFamily,
-                        color = resolveAdaptiveTextColor(note.textColorHex).copy(alpha = 0.85f),
-                        maxLines = 2,
-                        overflow = TextOverflow.Ellipsis,
-                        lineHeight = 20.sp
-                    )
+                    if (note.isLocked) {
+                        Text(
+                            text = "🔒 এই কবিতাটি সুরক্ষিত রয়েছে",
+                            fontSize = 13.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = previewModifier
+                        )
+                    } else {
+                        val previewText = if (note.content.isNotBlank()) note.content else "কোনো লেখা নেই..."
+                        Text(
+                            text = previewText,
+                            fontSize = 14.sp,
+                            fontFamily = fontOption.fontFamily,
+                            color = resolveAdaptiveTextColor(note.textColorHex).copy(alpha = 0.85f),
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis,
+                            lineHeight = 20.sp,
+                            modifier = previewModifier
+                        )
+                    }
                 }
 
                 Spacer(modifier = Modifier.height(10.dp))
@@ -333,7 +440,24 @@ fun NoteCardItem(
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(2.dp)
                         ) {
-                            // 1. Pin Icon
+                            // 1. Move to Group Icon (when enabled)
+                            if (onMoveToGroup != null) {
+                                IconButton(
+                                    onClick = onMoveToGroup,
+                                    modifier = Modifier
+                                        .size(28.dp)
+                                        .testTag("move_note_group_${note.id}")
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Outlined.Folder,
+                                        contentDescription = "গ্রুপে নিন",
+                                        tint = if (groupName != null) GoldPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                }
+                            }
+
+                            // 2. Pin Icon
                             IconButton(
                                 onClick = onTogglePin,
                                 modifier = Modifier.size(28.dp)
@@ -361,13 +485,19 @@ fun NoteCardItem(
 
                             // 3. Delete Icon
                             IconButton(
-                                onClick = onDelete,
+                                onClick = {
+                                    if (note.isLocked) {
+                                        Toast.makeText(context, "লক করা নোট ডিলিট করা যাবে না", Toast.LENGTH_SHORT).show()
+                                    } else {
+                                        onDelete()
+                                    }
+                                },
                                 modifier = Modifier.size(28.dp)
                             ) {
                                 Icon(
                                     imageVector = Icons.Outlined.Delete,
                                     contentDescription = "Delete Note",
-                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    tint = if (note.isLocked) MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.3f) else MaterialTheme.colorScheme.onSurfaceVariant,
                                     modifier = Modifier.size(16.dp)
                                 )
                             }
@@ -403,11 +533,14 @@ fun NoteListItem(
     onToggleLock: () -> Unit = {},
     onDelete: () -> Unit = {},
     onRemoveFromGroup: (() -> Unit)? = null,
+    onMoveToGroup: (() -> Unit)? = null,
     onUnhide: (() -> Unit)? = null
 ) {
+    val context = LocalContext.current
     val cardBg = MaterialTheme.colorScheme.surface
     val titleColor = resolveAdaptiveTitleColor(note.titleColorHex)
-    val fontOption = BengaliFonts.getFontByKey(note.fontFamilyKey)
+    val allFonts by BengaliFonts.fontsFlow.collectAsState()
+    val fontOption = remember(note.fontFamilyKey, allFonts) { BengaliFonts.getFontByKey(note.fontFamilyKey) }
 
     Card(
         modifier = modifier
@@ -459,23 +592,66 @@ fun NoteListItem(
                 Column(
                     modifier = Modifier.weight(1f)
                 ) {
+                    val hasTitle = note.title.isNotBlank()
+                    if (hasTitle) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            Text(
+                                text = note.title,
+                                fontSize = 15.sp,
+                                fontWeight = FontWeight.Bold,
+                                fontFamily = fontOption.fontFamily,
+                                color = titleColor,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                modifier = Modifier
+                                    .weight(1f, fill = false)
+                                    .testTag("note_list_title_${note.id}")
+                            )
+
+                            if (!isInSelectionMode) {
+                                if (note.isLocked) {
+                                    Icon(
+                                        imageVector = Icons.Filled.Lock,
+                                        contentDescription = "Locked",
+                                        tint = Color(0xFFC62828),
+                                        modifier = Modifier.size(14.dp)
+                                    )
+                                }
+                                if (note.isPinned) {
+                                    Icon(
+                                        imageVector = Icons.Filled.PushPin,
+                                        contentDescription = "Pinned",
+                                        tint = AmberAccent,
+                                        modifier = Modifier.size(14.dp)
+                                    )
+                                }
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(2.dp))
+                    }
+
+                    val previewText = if (note.isLocked) "🔒 সুরক্ষিত কবিতা" else if (note.content.isNotBlank()) note.content else "কোনো লেখা নেই..."
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(4.dp)
                     ) {
-                        val titleText = if (note.title.isNotBlank()) note.title else "শিরোনামহীন"
                         Text(
-                            text = titleText,
-                            fontSize = 15.sp,
-                            fontWeight = FontWeight.Bold,
+                            text = previewText,
+                            fontSize = if (hasTitle) 12.sp else 13.sp,
                             fontFamily = fontOption.fontFamily,
-                            color = titleColor,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = if (hasTitle) 0.8f else 0.9f),
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
-                            modifier = Modifier.weight(1f, fill = false)
+                            modifier = Modifier
+                                .weight(1f, fill = false)
+                                .testTag("note_list_preview_${note.id}")
                         )
 
-                        if (!isInSelectionMode) {
+                        if (!hasTitle && !isInSelectionMode) {
                             if (note.isLocked) {
                                 Icon(
                                     imageVector = Icons.Filled.Lock,
@@ -495,18 +671,6 @@ fun NoteListItem(
                         }
                     }
 
-                    Spacer(modifier = Modifier.height(2.dp))
-
-                    val previewText = if (note.isLocked) "🔒 সুরক্ষিত কবিতা" else if (note.content.isNotBlank()) note.content else "কোনো লেখা নেই..."
-                    Text(
-                        text = previewText,
-                        fontSize = 12.sp,
-                        fontFamily = fontOption.fontFamily,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f),
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-
                     Spacer(modifier = Modifier.height(4.dp))
 
                     Row(
@@ -518,7 +682,8 @@ fun NoteListItem(
                                 text = "📁 $groupName",
                                 fontSize = 10.sp,
                                 fontWeight = FontWeight.Bold,
-                                color = AmberAccent
+                                color = AmberAccent,
+                                modifier = if (onMoveToGroup != null) Modifier.clickable { onMoveToGroup() } else Modifier
                             )
                         }
                         Text(
@@ -534,6 +699,21 @@ fun NoteListItem(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(0.dp)
                     ) {
+                        if (onMoveToGroup != null) {
+                            IconButton(
+                                onClick = onMoveToGroup,
+                                modifier = Modifier
+                                    .size(28.dp)
+                                    .testTag("move_list_note_group_${note.id}")
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Outlined.Folder,
+                                    contentDescription = "গ্রুপে নিন",
+                                    tint = if (groupName != null) GoldPrimary else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+                                    modifier = Modifier.size(15.dp)
+                                )
+                            }
+                        }
                         // 1. Pin Icon
                         IconButton(onClick = onTogglePin, modifier = Modifier.size(28.dp)) {
                             Icon(
@@ -555,11 +735,20 @@ fun NoteListItem(
                         }
 
                         // 3. Delete Icon
-                        IconButton(onClick = onDelete, modifier = Modifier.size(28.dp)) {
+                        IconButton(
+                            onClick = {
+                                if (note.isLocked) {
+                                    Toast.makeText(context, "লক করা নোট ডিলিট করা যাবে না", Toast.LENGTH_SHORT).show()
+                                } else {
+                                    onDelete()
+                                }
+                            },
+                            modifier = Modifier.size(28.dp)
+                        ) {
                             Icon(
                                 imageVector = Icons.Outlined.Delete,
                                 contentDescription = "Delete Note",
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+                                tint = if (note.isLocked) MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.25f) else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
                                 modifier = Modifier.size(15.dp)
                             )
                         }
@@ -594,11 +783,14 @@ fun NoteGridItem(
     onToggleLock: () -> Unit = {},
     onDelete: () -> Unit = {},
     onRemoveFromGroup: (() -> Unit)? = null,
+    onMoveToGroup: (() -> Unit)? = null,
     onUnhide: (() -> Unit)? = null
 ) {
+    val context = LocalContext.current
     val cardBg = MaterialTheme.colorScheme.surface
     val titleColor = resolveAdaptiveTitleColor(note.titleColorHex)
-    val fontOption = BengaliFonts.getFontByKey(note.fontFamilyKey)
+    val allFonts by BengaliFonts.fontsFlow.collectAsState()
+    val fontOption = remember(note.fontFamilyKey, allFonts) { BengaliFonts.getFontByKey(note.fontFamilyKey) }
 
     Card(
         modifier = modifier
@@ -641,6 +833,9 @@ fun NoteGridItem(
                         modifier = Modifier
                             .clip(RoundedCornerShape(6.dp))
                             .background(AmberAccent.copy(alpha = 0.12f))
+                            .then(
+                                if (onMoveToGroup != null) Modifier.clickable { onMoveToGroup() } else Modifier
+                            )
                             .padding(horizontal = 6.dp, vertical = 2.dp)
                     ) {
                         Text(
@@ -655,68 +850,140 @@ fun NoteGridItem(
                     Spacer(modifier = Modifier.height(4.dp))
                 }
 
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.Top
-                ) {
-                    val titleText = if (note.title.isNotBlank()) note.title else "শিরোনামহীন"
-                    Text(
-                        text = titleText,
-                        fontSize = 15.sp,
-                        fontWeight = FontWeight.Bold,
-                        fontFamily = fontOption.fontFamily,
-                        color = titleColor,
-                        maxLines = 2,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.weight(1f)
-                    )
+                val hasTitle = note.title.isNotBlank()
+                val showTopBadges = (!isInSelectionMode && (note.isLocked || note.isPinned)) || isInSelectionMode || isSelected
+                val previewText = if (note.isLocked) "🔒 সুরক্ষিত কবিতা" else if (note.content.isNotBlank()) note.content else "কোনো লেখা নেই..."
 
+                if (hasTitle) {
                     Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(2.dp)
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.Top
                     ) {
-                        if (!isInSelectionMode) {
-                            if (note.isLocked) {
-                                Icon(
-                                    imageVector = Icons.Filled.Lock,
-                                    contentDescription = "Locked",
-                                    tint = Color(0xFFC62828),
-                                    modifier = Modifier.size(14.dp)
-                                )
+                        Text(
+                            text = note.title,
+                            fontSize = 15.sp,
+                            fontWeight = FontWeight.Bold,
+                            fontFamily = fontOption.fontFamily,
+                            color = titleColor,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier
+                                .weight(1f)
+                                .testTag("note_grid_title_${note.id}")
+                        )
+
+                        if (showTopBadges) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(2.dp)
+                            ) {
+                                if (!isInSelectionMode) {
+                                    if (note.isLocked) {
+                                        Icon(
+                                            imageVector = Icons.Filled.Lock,
+                                            contentDescription = "Locked",
+                                            tint = Color(0xFFC62828),
+                                            modifier = Modifier.size(14.dp)
+                                        )
+                                    }
+                                    if (note.isPinned) {
+                                        Icon(
+                                            imageVector = Icons.Filled.PushPin,
+                                            contentDescription = "Pinned",
+                                            tint = AmberAccent,
+                                            modifier = Modifier.size(14.dp)
+                                        )
+                                    }
+                                }
+                                if (isInSelectionMode || isSelected) {
+                                    Icon(
+                                        imageVector = if (isSelected) Icons.Filled.CheckCircle else Icons.Outlined.CheckCircleOutline,
+                                        contentDescription = null,
+                                        tint = if (isSelected) GoldPrimary else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                }
                             }
-                            if (note.isPinned) {
-                                Icon(
-                                    imageVector = Icons.Filled.PushPin,
-                                    contentDescription = "Pinned",
-                                    tint = AmberAccent,
-                                    modifier = Modifier.size(14.dp)
-                                )
-                            }
-                        }
-                        if (isInSelectionMode || isSelected) {
-                            Icon(
-                                imageVector = if (isSelected) Icons.Filled.CheckCircle else Icons.Outlined.CheckCircleOutline,
-                                contentDescription = null,
-                                tint = if (isSelected) GoldPrimary else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
-                                modifier = Modifier.size(18.dp)
-                            )
                         }
                     }
+
+                    Spacer(modifier = Modifier.height(6.dp))
+
+                    Text(
+                        text = previewText,
+                        fontSize = 12.sp,
+                        fontFamily = fontOption.fontFamily,
+                        color = resolveAdaptiveTextColor(note.textColorHex).copy(alpha = 0.8f),
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                        lineHeight = 17.sp,
+                        modifier = Modifier.testTag("note_grid_preview_${note.id}")
+                    )
+                } else if (showTopBadges) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.Top
+                    ) {
+                        Text(
+                            text = previewText,
+                            fontSize = 12.sp,
+                            fontFamily = fontOption.fontFamily,
+                            color = resolveAdaptiveTextColor(note.textColorHex).copy(alpha = 0.85f),
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis,
+                            lineHeight = 17.sp,
+                            modifier = Modifier
+                                .weight(1f)
+                                .padding(end = 4.dp)
+                                .testTag("note_grid_preview_${note.id}")
+                        )
+
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(2.dp)
+                        ) {
+                            if (!isInSelectionMode) {
+                                if (note.isLocked) {
+                                    Icon(
+                                        imageVector = Icons.Filled.Lock,
+                                        contentDescription = "Locked",
+                                        tint = Color(0xFFC62828),
+                                        modifier = Modifier.size(14.dp)
+                                    )
+                                }
+                                if (note.isPinned) {
+                                    Icon(
+                                        imageVector = Icons.Filled.PushPin,
+                                        contentDescription = "Pinned",
+                                        tint = AmberAccent,
+                                        modifier = Modifier.size(14.dp)
+                                    )
+                                }
+                            }
+                            if (isInSelectionMode || isSelected) {
+                                Icon(
+                                    imageVector = if (isSelected) Icons.Filled.CheckCircle else Icons.Outlined.CheckCircleOutline,
+                                    contentDescription = null,
+                                    tint = if (isSelected) GoldPrimary else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
+                                    modifier = Modifier.size(18.dp)
+                                )
+                            }
+                        }
+                    }
+                } else {
+                    Text(
+                        text = previewText,
+                        fontSize = 12.sp,
+                        fontFamily = fontOption.fontFamily,
+                        color = resolveAdaptiveTextColor(note.textColorHex).copy(alpha = 0.85f),
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                        lineHeight = 17.sp,
+                        modifier = Modifier.testTag("note_grid_preview_${note.id}")
+                    )
                 }
-
-                Spacer(modifier = Modifier.height(6.dp))
-
-                val previewText = if (note.isLocked) "🔒 সুরক্ষিত কবিতা" else if (note.content.isNotBlank()) note.content else "কোনো লেখা নেই..."
-                Text(
-                    text = previewText,
-                    fontSize = 12.sp,
-                    fontFamily = fontOption.fontFamily,
-                    color = resolveAdaptiveTextColor(note.textColorHex).copy(alpha = 0.8f),
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis,
-                    lineHeight = 17.sp
-                )
 
                 Spacer(modifier = Modifier.height(10.dp))
 
@@ -757,11 +1024,20 @@ fun NoteGridItem(
                             }
 
                             // 3. Delete Icon
-                            IconButton(onClick = onDelete, modifier = Modifier.size(26.dp)) {
+                            IconButton(
+                                onClick = {
+                                    if (note.isLocked) {
+                                        Toast.makeText(context, "লক করা নোট ডিলিট করা যাবে না", Toast.LENGTH_SHORT).show()
+                                    } else {
+                                        onDelete()
+                                    }
+                                },
+                                modifier = Modifier.size(26.dp)
+                            ) {
                                 Icon(
                                     imageVector = Icons.Outlined.Delete,
                                     contentDescription = "Delete Note",
-                                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+                                    tint = if (note.isLocked) MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.25f) else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
                                     modifier = Modifier.size(14.dp)
                                 )
                             }
